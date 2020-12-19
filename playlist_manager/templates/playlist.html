@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<div style="margin: 50px;">
+    <button id="playlist-save" type="button" class="btn btn-primary" disabled>Save</button>
+    <ul id="playlist-tracks" data-playlist-id="{{ playlist_id }}" class="list-group">
+    {% for track in tracks %}
+    <li data-id="{{ track['item_id'] }}" data-name="{{ track['name'] }}" data-artist="{{ track['artist'] }}" data-album="{{ track['album'] }}" class="list-group-item">{{ track["name"] }}</li>
+    {% endfor %}
+    </ul>
+</div>
+
+{% endblock %}
+
+{% block css %}
+#playlist-tracks {
+    cursor: move;
+}
+.selected {
+	background-color: #f9c7c8;
+	border: solid red 1px !important;
+	z-index: 1 !important;
+}
+{% endblock %}
+
+{% block js %}
+var moves = [];
+
+function arrayEq(array1, array2) {
+    return array1.length === array2.length && array1.every((value, index) => value === array2[index]);
+}
+
+function arrayZip(...arrays) {
+    var final = arrays[0].map(val => [val]);
+    arrays.slice(1).forEach(arr => arr.forEach((val, index) => final[index].push(val)));
+    return final;
+}
+
+function getPlaylistTracks() {
+    var tracks = [];
+    $("#playlist-tracks li").each((index, val) => tracks.push($(val).attr("data-id")));
+    return tracks;
+}
+
+function renumberTracks() {
+    $("#playlist-tracks li").each((index, item) => {
+        var name = $(item).attr("data-name");
+        var artist = $(item).attr("data-artist");
+        var album = $(item).attr("data-album");
+        $(item).html(`${index + 1}. ${name} - <span style="font-size: 80%; color: rgb(128,128,128);">by ${artist} (from ${album})</span>`);
+    });
+}
+
+$("#playlist-save").click(function() {
+    $.post("{{ url_for('save_playlist', id=playlist_id) }}", {tracks: JSON.stringify(getPlaylistTracks())})
+        .done(function() {
+            renumberTracks();
+            move = [];
+        });
+});
+
+new Sortable($("#playlist-tracks").get(0), {
+	multiDrag: true,
+    multiDragKey: "Ctrl",
+	selectedClass: "selected",
+	fallbackTolerance: 3, // So that we can select items on mobile
+	animation: 150,
+    onUpdate: function (evt) {
+        if (evt.items.length) {
+            var moveInfo = arrayZip(
+                evt.items.map(item => $(item).attr("data-id")),
+                evt.oldIndicies.map(info => info["index"]),
+                evt.newIndicies.map(info => info["index"]));
+        } else {
+            var moveInfo = [[$(evt.item).attr("data-id"), evt.oldIndex, evt.newIndex]];
+        }
+
+        moves.push(moveInfo);
+        console.log(JSON.stringify(moves));
+
+        if (arrayEq(originalTracks, getPlaylistTracks())) {
+            $("#playlist-save").attr("disabled", "disabled");
+        } else {
+            $("#playlist-save").removeAttr("disabled");
+        }
+    }
+});
+
+var originalTracks = getPlaylistTracks();
+renumberTracks();
+{% endblock %}

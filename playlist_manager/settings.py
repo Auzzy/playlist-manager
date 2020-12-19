@@ -1,0 +1,10 @@
+import os
+
+#Global
+SECRET_KEY = os.environ.get("SECRET_KEY", "47fa5b03-4268-48d6-b00f-92c865c9cd4b")
+TEMPLATES_AUTO_RELOAD = True
+EXPLAIN_TEMPLATE_LOADING = False
+
+# WTForms
+WTF_CSRF_ENABLED = True
+WTF_CSRF_TIME_LIMIT = None

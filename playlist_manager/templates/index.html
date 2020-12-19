@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<div style="margin: 50px;">
+    <form class="form-inline" action="{{ url_for('create_playlist') }}" method="POST" class="navbar-form navbar-right" role="form">
+        <input type="text" class="form-control" id="artist-name" name="artistName" placeholder="Artist...">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-primary">Create Playlist</button>
+    </form>
+    <h2>Playlists</h2>
+    <div class="list-group">
+    {% for playlist in playlists %}
+	<a href="{{ url_for('display_playlist', id=playlist['id']) }}" class="list-group-item list-group-item-action">{{ playlist['name'] }}</a>
+    {% endfor %}
+	</div> 
+</div>
+{% endblock %}
