@@ -3,6 +3,8 @@
 {% block body %}
 <div style="margin: 50px;">
     <button id="playlist-save" type="button" class="btn btn-primary" disabled>Save</button>
+    <button id="playlist-undo" type="button" class="btn btn-primary" disabled>Undo</button>
+    <button id="playlist-reset" type="button" class="btn btn-primary" disabled>Reset</button>
     <ul id="playlist-tracks" data-playlist-id="{{ playlist_id }}" class="list-group">
     {% for track in tracks %}
     <li data-id="{{ track['item_id'] }}" data-name="{{ track['name'] }}" data-artist="{{ track['artist'] }}" data-album="{{ track['album'] }}" class="list-group-item">{{ track["name"] }}</li>
@@ -36,6 +38,14 @@ function arrayZip(...arrays) {
     return final;
 }
 
+function toggleAttr(condition, selector, attrName) {
+    if (condition) {
+        $(selector).attr(attrName, attrName);
+    } else {
+        $(selector).removeAttr(attrName);
+    }
+}
+
 function getPlaylistTracks() {
     var tracks = [];
     $("#playlist-tracks li").each((index, val) => tracks.push($(val).attr("data-id")));
@@ -51,12 +61,40 @@ function renumberTracks() {
     });
 }
 
+function undoLastAction() {
+    var lastMoveSet = moves[moves.length - 1];
+    var itemToDest = lastMoveSet.map(move => [$(`#playlist-tracks li[data-id='${move[0]}']`).detach(), move[1]]);
+    itemToDest.sort((val1, val2) => val2[1] > val1[1]);
+    itemToDest.forEach(([item, index]) => $(`#playlist-tracks li:nth(${index})`).before(item));
+    moves.splice(moves.length - 1, 1);
+}
+
+function updateActionButtons() {
+    toggleAttr(arrayEq(originalTracks, getPlaylistTracks()), "#playlist-save", "disabled");
+    toggleAttr(!moves.length, "#playlist-undo", "disabled");
+    toggleAttr(!moves.length, "#playlist-reset", "disabled");
+}
+
 $("#playlist-save").click(function() {
     $.post("{{ url_for('save_playlist', id=playlist_id) }}", {tracks: JSON.stringify(getPlaylistTracks())})
         .done(function() {
             renumberTracks();
-            move = [];
+            moves = [];
         });
+});
+
+$("#playlist-undo").click(function() {
+    if (moves.length) {
+        undoLastAction();
+        updateActionButtons();
+    }
+});
+
+$("#playlist-reset").click(function() {
+    while (moves.length) {
+        undoLastAction();
+    }
+    updateActionButtons();
 });
 
 new Sortable($("#playlist-tracks").get(0), {
@@ -78,11 +116,7 @@ new Sortable($("#playlist-tracks").get(0), {
         moves.push(moveInfo);
         console.log(JSON.stringify(moves));
 
-        if (arrayEq(originalTracks, getPlaylistTracks())) {
-            $("#playlist-save").attr("disabled", "disabled");
-        } else {
-            $("#playlist-save").removeAttr("disabled");
-        }
+        updateActionButtons();
     }
 });
 
