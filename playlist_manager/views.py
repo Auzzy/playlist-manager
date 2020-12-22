@@ -43,6 +43,6 @@ def save_playlist(id):
 
     pandora_client = pandora.Pandora.connect()
     playlist_info = pandora_client.get_playlist_info(id)
-    pandora_client.rearrange_playlist(playlist_info, new_tracks)
+    pandora_client.update_playlist(playlist_info, new_tracks)
 
     return ""
