@@ -46,3 +46,14 @@ def save_playlist(id):
     pandora_client.update_playlist(playlist_info, new_tracks)
 
     return ""
+
+@app.route("/library/add", methods=["POST"])
+def library_add_from_playlist():
+    playlist_id = request.form["playlistId"]
+    tracks = json.loads(request.form["tracks"])
+
+    pandora_client = pandora.Pandora.connect()
+    playlist_info = pandora_client.get_playlist_info(playlist_id)
+    pandora_client.library_add_from_playlist(playlist_info, tracks)
+
+    return ""

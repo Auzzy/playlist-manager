@@ -2,10 +2,16 @@
 
 {% block body %}
 <div style="margin: 50px;">
-    <button id="playlist-save" type="button" class="btn btn-primary" disabled>Save</button>
-    <button id="playlist-undo" type="button" class="btn btn-primary" disabled>Undo</button>
-    <button id="playlist-reset" type="button" class="btn btn-primary" disabled>Reset</button>
-    <button id="playlist-delete" type="button" class="btn btn-primary" disabled>Delete Selected <span id="delete-count"></span></button>
+    <div style="max-width: 50%">
+        <button id="playlist-save" type="button" class="btn btn-primary" disabled>Save</button>
+        <button id="playlist-undo" type="button" class="btn btn-primary" disabled>Undo</button>
+        <button id="playlist-reset" type="button" class="btn btn-primary" disabled>Reset</button>
+        <button id="playlist-delete" type="button" class="btn btn-primary" disabled>Delete Selected</button>
+        <button id="playlist-library-add" type="button" class="btn btn-primary" disabled>Add Selected To Library</button>
+        <div class="float-right" style="font-style: italic">
+            Selected: <span id="selected-count">0</span>
+        </div>
+    </div>
     <ul id="playlist-tracks" data-playlist-id="{{ playlist_id }}" class="list-group" style="max-width: 50%">
     {% for track in tracks %}
     <li data-id="{{ track['item_id'] }}" data-name="{{ track['name'] }}" data-artist="{{ track['artist'] }}" data-album="{{ track['album'] }}" class="list-group-item"></li>
@@ -58,12 +64,27 @@ function redisplayTracks() {
         var name = $(item).attr("data-name");
         var artist = $(item).attr("data-artist");
         var album = $(item).attr("data-album");
-        $(item).html(`${index + 1}. ${name} - <span style="font-size: 80%; color: rgb(128,128,128);">by ${artist} (from ${album})</span><span class="oi oi-trash float-right" style="cursor: pointer;"></span>`);
+        $(item)
+            // Text display
+            .html(`${index + 1}. ${name} - <span style="font-size: 80%; color: rgb(128,128,128);">by ${artist} (from ${album})</span>`)
+            // Action buttons
+            .append($("<span></span>")
+                .addClass("float-right")
+                .append($("<span></span>")
+                    .addClass("oi oi-plus")
+                    .css("cursor", "pointer")
+                    .css("padding-right", "10px;")
+                    .click(function() {
+                        libraryAdd($(this).parents('li'));
+                    }))
+                .append($("<span></span>")
+                    .addClass("oi oi-trash")
+                    .css("cursor", "pointer")
+                    .css("padding-left", "10px")
+                    .click(function() {
+                        deleteTracks($(this).parents('li'));
+                    })));
     });
-    $("#playlist-tracks li .oi-trash")
-        .click(function() {
-            deleteTracks($(this).parent('li'));
-        });
 }
 
 function undoLastAction() {
@@ -87,11 +108,11 @@ function updateActionButtons() {
     toggleAttr(!changes.length, "#playlist-undo", "disabled");
     toggleAttr(!changes.length, "#playlist-reset", "disabled");
     toggleAttr(!$("#playlist-tracks li.selected").length, "#playlist-delete", "disabled");
+    toggleAttr(!$("#playlist-tracks li.selected").length, "#playlist-library-add", "disabled");
 }
 
 function updateSelectedCount() {
-    var selectedCount = $("#playlist-tracks li.selected").length;
-    $("#delete-count").text(selectedCount === 0 ? "" : `(${selectedCount})`);
+    $("#selected-count").text($("#playlist-tracks li.selected").length);
 }
 
 function deleteTracks(nodeList) {
@@ -104,6 +125,18 @@ function deleteTracks(nodeList) {
         .detach();
     changes.push(deleted);
     updateActionButtons();
+}
+
+function libraryAdd(nodeList) {
+    var tracks = [];
+    $(nodeList).each((index, val) => tracks.push($(val).attr("data-id")));
+
+    var data = {tracks: JSON.stringify(tracks), playlistId: "{{ playlist_id }}"};
+    $.post("{{ url_for('library_add_from_playlist') }}", data);
+}
+
+function libraryAddSelected() {
+    libraryAdd($("#playlist-tracks li.selected"));
 }
 
 $("#playlist-save").click(function() {
@@ -130,6 +163,11 @@ $("#playlist-reset").click(function() {
 
 $("#playlist-delete").click(function() {
     deleteTracks($("#playlist-tracks li.selected"));
+});
+
+$("#playlist-library-add").click(function() {
+    var data = {tracks: JSON.stringify($("#playlist-tracks li.selected")), playlistId: "{{ playlist_id }}"};
+    $.post("{{ url_for('library_add_from_playlist') }}", data);
 });
 
 $("#playlist-tracks li").click(event => {
@@ -173,7 +211,6 @@ new Sortable($("#playlist-tracks").get(0), {
         updateActionButtons();
     }
 });
-
 
 var mutationObserver = new MutationObserver(function(mutations, mut) {
     updateSelectedCount();
