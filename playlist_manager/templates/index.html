@@ -8,12 +8,11 @@
         </div>
     </div>
     <div class="row">
-        <div class="col">
-            <form class="form-inline" action="{{ url_for('create_playlist') }}" method="POST" class="navbar-form navbar-right" role="form">
-                <input type="text" class="form-control" id="artist-name" name="artistName" placeholder="Artist...">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <button type="submit" class="btn btn-primary">Create Playlist</button>
-            </form>
+        <div class="input-group col-5 mb-3">
+            <input type="text" class="form-control" id="artist-name" placeholder="Artist...">
+            <div class="input-group-append">
+                <button id="create-playlist-button" type="button" class="btn btn-primary">Create Playlist</button>
+            </div>
         </div>
     </div>
     <div class="row">
@@ -26,4 +25,100 @@
         </div>
     </div>
 </div>
+
+<div id="modal-artist-disambiguation" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Artist Disambiguation</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Found more than one match for &quot;<span id="modal-artist-name"></span>&quot;. Please select one:</p>
+                <div id="modal-artist-choices" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block css %}
+.loader {
+    margin-left: 5px;
+}
+{% endblock %}
+
+{% block js %}
+$("#create-playlist-button").click(function(event) {
+    $("#create-playlist-button")
+        .append($("<i></i>")
+            .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
+
+    $.post("{{ url_for('create_playlist') }}", {artistName: $("#artist-name").val()})
+        .done(function(response) {
+            // If playlist creation was successful, reload the page.
+            if (response.hasOwnProperty("created")) {
+                location.reload();
+            } else {
+                // If multiple artists were found for the search term, setup and
+                // open the disambiguation modal.
+                $("#modal-artist-choices").empty();
+
+                $("#modal-artist-name").text(response["artist"]);
+                response["choices"].forEach(choice => {
+                    var label = choice["name"];
+                    if (choice["disambiguation"]) {
+                        label += ` (${choice["disambiguation"]})`;
+                    }
+                    $("#modal-artist-choices")
+                        .attr("data-search", response["artist"])
+                        .append($("<a></a>")
+                            .addClass("list-group-item list-group-item-action")
+                            .attr("href", "#")
+                            .attr("data-artist-id", choice["id"])
+                            .css("cursor", "pointer")
+                            .text(label));
+                });
+
+                $("#modal-artist-disambiguation").modal();
+            }
+        })
+        .fail(function() {
+            $("#create-playlist-button .loader").remove();
+        });
+});
+
+$("#modal-artist-choices").on("click", ".list-group-item", function() {
+    if ($(this).hasClass("disabled")) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        event.preventDefault();
+        return;
+    }
+
+    $("#modal-artist-choices .list-group-item")
+        .addClass("disabled");
+
+    $(this)
+        .append($("<i></i>")
+            .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
+
+    $.post("{{ url_for('create_playlist') }}", {artistName: $(this).parent().attr("data-search"), artistId: $(this).attr("data-artist-id")})
+        .done(function() {
+            location.reload();
+        })
+        .fail(function() {
+            $("#modal-artist-choices .loader").remove();
+            $("#modal-artist-choices .list-group-item")
+                .removeClass("disabled");
+        });
+});
+
+$("#modal-artist-disambiguation").on("hide.bs.modal", function() {
+    $("#create-playlist-button .loader").remove();
+    $("#modal-artist-choices").empty();
+});
+
 {% endblock %}
