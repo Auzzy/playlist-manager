@@ -3,7 +3,7 @@ import json
 from flask import g, jsonify, redirect, render_template, request, session, url_for
 
 # from playlist_manager.lib import createplaylist, pandora
-from playlistmanager import createplaylist, pandora
+from playlistmanager import createplaylist, pandora, musicbrainz
 
 from playlist_manager.playlist_manager import app
 
@@ -23,13 +23,26 @@ def show_playlists():
     playlist_info = [{"name": playlist["name"], "id": playlist["pandoraId"]} for playlist in pandora_playlists["items"]]
     return render_template("index.html", playlists=playlist_info)
 
-@app.route("/create")
+@app.route("/create", methods=["POST"])
 def create_playlist():
-    if request.method == "POST":
-        artist_name = request.form.get("artistName")
-        createplaylist.main(artist_name, 90)
-        
-    return redirect(show_playlists)
+    artist_name = request.form.get("artistName")
+    artist_id = request.form.get("artistId")
+
+    if not artist_id:
+        search_result = musicbrainz.MusicBrainz.connect().search_artist(artist_name, 85)
+        if len(search_result) > 1:
+            choices = []
+            for artist in search_result:
+                choices.append({
+                    "id": artist["id"],
+                    "name": artist["name"],
+                    "disambiguation": artist.get("disambiguation") or artist.get("country")
+                })
+            return jsonify({"choices": choices, "artist": artist_name})
+
+        artist_id = search_result[0]["id"]
+
+    return jsonify({"created": createplaylist.discography_playlist(artist_name, artist_id)})
 
 @app.route("/display/<id>")
 def display_playlist(id):
