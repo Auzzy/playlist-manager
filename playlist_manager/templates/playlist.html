@@ -1,22 +1,31 @@
 {% extends "layout.html" %}
 
 {% block body %}
-<div style="margin: 50px;">
-    <div style="max-width: 50%">
-        <button id="playlist-save" type="button" class="btn btn-primary" disabled>Save</button>
-        <button id="playlist-undo" type="button" class="btn btn-primary" disabled>Undo</button>
-        <button id="playlist-reset" type="button" class="btn btn-primary" disabled>Reset</button>
-        <button id="playlist-delete" type="button" class="btn btn-primary" disabled>Delete Selected</button>
-        <button id="playlist-library-add" type="button" class="btn btn-primary" disabled>Add Selected To Library</button>
-        <div class="float-right" style="font-style: italic">
-            Selected: <span id="selected-count">0</span>
+<div class="container">
+    <div class="row">
+        <a href="{{ url_for('show_playlists') }}"><i class="fas fa-long-arrow-alt-left"></i> Back to playlists</a>
+    </div>
+    <div class="row justify-content-between">
+        <div class="col-4" style="display: flex; align-items: flex-end; margin-bottom: 5px;">
+            <i id="playlist-save" class="fas fa-save fa-lg text-success" style="margin-right: 5px;" disabled></i>
+            <i id="playlist-undo" class="fas fa-reply fa-lg text-secondary" style="margin-right: 5px;" disabled></i>
+            <i id="playlist-reset" class="fas fa-undo fa-lg text-warning" disabled></i>
+        </div>
+        <div class="col-4 col-offset-4 text-right">
+            <div style="font-style: italic;">
+                Selected: <span id="selected-count">0</span>
+            </div>
+            <button id="playlist-delete" type="button" class="btn btn-danger" disabled>Delete</button>
+            <button id="playlist-library-add" type="button" class="btn btn-info" disabled>Add To Library</button>
         </div>
     </div>
-    <ul id="playlist-tracks" data-playlist-id="{{ playlist_id }}" class="list-group" style="max-width: 50%">
-    {% for track in tracks %}
-    <li data-id="{{ track['item_id'] }}" data-name="{{ track['name'] }}" data-artist="{{ track['artist'] }}" data-album="{{ track['album'] }}" class="list-group-item"></li>
-    {% endfor %}
-    </ul>
+    <div class="row">
+        <ul id="playlist-tracks" data-playlist-id="{{ playlist_id }}" class="list-group col">
+        {% for track in tracks %}
+            <li data-id="{{ track['item_id'] }}" data-name="{{ track['name'] }}" data-artist="{{ track['artist'] }}" data-album="{{ track['album'] }}" class="list-group-item"></li>
+        {% endfor %}
+        </ul>
+    </div>
 </div>
 
 {% endblock %}
@@ -25,11 +34,23 @@
 #playlist-tracks {
     cursor: move;
 }
+
+#playlist-save, #playlist-undo, #playlist-reset {
+    cursor: pointer;
+}
+
 .selected {
 	background-color: #f9c7c8;
 	border: solid red 1px !important;
 	z-index: 1 !important;
 }
+
+.fas.disabled, .fas[disabled], .disabled > .fas, [disabled] > .fas {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 {% endblock %}
 
 {% block js %}
@@ -70,15 +91,17 @@ function redisplayTracks() {
             // Action buttons
             .append($("<span></span>")
                 .addClass("float-right")
-                .append($("<span></span>")
-                    .addClass("oi oi-plus")
+                .append($("<i></i>")
+                    .addClass("fas fa-plus")
+                    .addClass("text-info")  // green
                     .css("cursor", "pointer")
                     .css("padding-right", "10px;")
                     .click(function() {
                         libraryAdd($(this).parents('li'));
                     }))
-                .append($("<span></span>")
-                    .addClass("oi oi-trash")
+                .append($("<i></i>")
+                    .addClass("far fa-trash-alt")
+                    .addClass("text-danger")  // red
                     .css("cursor", "pointer")
                     .css("padding-left", "10px")
                     .click(function() {
@@ -212,7 +235,6 @@ new Sortable($("#playlist-tracks").get(0), {
         moveInfo.splice(0, 0, "move");
 
         changes.push(moveInfo);
-        console.log(JSON.stringify(changes));
 
         updateActionButtons();
     }
