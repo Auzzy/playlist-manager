@@ -17,7 +17,7 @@
     </div>
     <div class="row">
         <div class="col">
-            <div class="list-group">
+            <div id="playlist-list" class="list-group">
             {% for playlist in playlists %}
             <a href="{{ url_for('display_playlist', id=playlist['id']) }}" class="list-group-item list-group-item-action">{{ playlist['name'] }}</a>
             {% endfor %}
@@ -42,6 +42,8 @@
         </div>
     </div>
 </div>
+
+{% include "login-modal.html" %}
 {% endblock %}
 
 {% block css %}
@@ -51,16 +53,41 @@
 {% endblock %}
 
 {% block js %}
-$("#create-playlist-button").click(function(event) {
+function appendPlaylist(playlist) {
+    $("#playlist-list")
+        .append($("<a></a>")
+            .addClass("list-group-item list-group-item-action")
+            .attr("href", "#")
+            .attr("data-playlist-id", playlist["id"])
+            .text(playlist["name"]));
+}
+
+function loadPlaylists() {
+    return $.post("{{ url_for('show_playlists') }}")
+        .done(function(response) {
+            $("#playlist-list").empty();
+
+            response["playlists"].forEach(appendPlaylist);
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+            openLoginOnUnauth(jqXHR, loadPlaylists);
+        });
+}
+
+function createPlaylist() {
     $("#create-playlist-button")
         .append($("<i></i>")
             .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
 
     $.post("{{ url_for('create_playlist') }}", {artistName: $("#artist-name").val()})
         .done(function(response) {
-            // If playlist creation was successful, reload the page.
             if (response.hasOwnProperty("created")) {
-                location.reload();
+                loadPlaylists()
+                    .done(function() {
+                        // Reset inputs
+                        $("#artist-name").val("");
+                        $("#create-playlist-button .loader").remove();
+                    });
             } else {
                 // If multiple artists were found for the search term, setup and
                 // open the disambiguation modal.
@@ -85,13 +112,14 @@ $("#create-playlist-button").click(function(event) {
                 $("#modal-artist-disambiguation").modal();
             }
         })
-        .fail(function() {
+        .fail(function(jqXHR, textStatus, errorThrown) {
+            openLoginOnUnauth(jqXHR, createPlaylist);
             $("#create-playlist-button .loader").remove();
         });
-});
+}
 
-$("#modal-artist-choices").on("click", ".list-group-item", function() {
-    if ($(this).hasClass("disabled")) {
+function createPlaylistSelectArtist(node) {
+    if ($(node).hasClass("disabled")) {
         event.stopImmediatePropagation();
         event.stopPropagation();
         event.preventDefault();
@@ -101,24 +129,53 @@ $("#modal-artist-choices").on("click", ".list-group-item", function() {
     $("#modal-artist-choices .list-group-item")
         .addClass("disabled");
 
-    $(this)
+    $(node)
         .append($("<i></i>")
             .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
 
-    $.post("{{ url_for('create_playlist') }}", {artistName: $(this).parent().attr("data-search"), artistId: $(this).attr("data-artist-id")})
+    $.post("{{ url_for('create_playlist') }}", {artistName: $(node).parent().attr("data-search"), artistId: $(node).attr("data-artist-id")})
         .done(function() {
-            location.reload();
+            loadPlaylists()
+                .done(function() {
+                    $("#modal-artist-disambiguation").modal("hide");
+
+                    // Reset inputs
+                    $("#artist-name").val("");
+                    $("#modal-artist-name").empty();
+                    $("#modal-artist-choices")
+                        .empty()
+                        .removeAttr("data-search");
+                    $(node).remove(".loader");
+                    $("#create-playlist-button .loader").remove();
+                });
         })
-        .fail(function() {
+        .fail(function(jqXHR, textStatus, errorThrown) {
+            openLoginOnUnauth(jqXHR, () => createPlaylistSelectArtist(node));
             $("#modal-artist-choices .loader").remove();
             $("#modal-artist-choices .list-group-item")
                 .removeClass("disabled");
         });
+}
+
+$("#create-playlist-button").click(function(event) {
+    createPlaylist();
+});
+
+$("#modal-artist-choices").on("click", ".list-group-item", function() {
+    createPlaylistSelectArtist(this);
+});
+
+$("#playlist-list").on("click", ".list-group-item", function() {
+    window.location.href = "{{ url_for('display_playlist') }}?id=" + $(this).attr("data-playlist-id");
 });
 
 $("#modal-artist-disambiguation").on("hide.bs.modal", function() {
     $("#create-playlist-button .loader").remove();
     $("#modal-artist-choices").empty();
 });
+
+loadPlaylists();
+
+{% include "js/login.html" %}
 
 {% endblock %}
