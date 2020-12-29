@@ -97,7 +97,13 @@ function undoLastAction() {
     } else if (lastAction[0] === "delete") {
         var itemToDest = lastAction.slice(1);
         itemToDest.sort((val1, val2) => val2[1] > val1[1]);
-        itemToDest.forEach(([item, index]) => $(`#playlist-tracks li:nth(${index})`).before(item));
+        itemToDest.forEach(([item, index]) => {
+            if (index === $("#playlist-tracks li").length) {
+                $(`#playlist-tracks li:last`).after(item);
+            } else {
+                $(`#playlist-tracks li:nth(${index})`).before(item);
+            }
+        });
         changes.splice(changes.length - 1, 1);
     }
     updateActionButtons();
