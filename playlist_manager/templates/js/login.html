@@ -1,0 +1,20 @@
+$("#login-auth-token").click(function() {
+    localStorage.setItem('authToken', $("#user-auth-token").val());
+    $("#user-auth-token").val("");
+
+    {% if redirect_target %}
+    window.location.href = "{{ redirect_target }}";
+    {% endif %}
+});
+
+function openLoginOnUnauth(jqXHR, loginCallback) {
+    if (jqXHR.status === 401) {
+        $("#modal-login").modal();
+        $("#login-auth-token").on("click.load-playlists", function() {
+            $("#login-auth-token").off("click.load-playlists");
+            $("#modal-login").modal("hide");
+
+            loginCallback();
+        });
+    }
+}

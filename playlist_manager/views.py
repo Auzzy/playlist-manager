@@ -1,30 +1,47 @@
 import json
 
+import requests
+import traceback
 from flask import g, jsonify, redirect, render_template, request, session, url_for
 
-# from playlist_manager.lib import createplaylist, pandora
 from playlistmanager import createplaylist, pandora, musicbrainz
 
 from playlist_manager.playlist_manager import app
 
 
-'''
-{
-    "message": "Auth Token is Expired - BIgeNY+PS2XimOsGeHs7Afe1KeiS4rtepYMfnDim0fHPsiI80IsPPl5w==",
-    "errorCode": 1001,
-    "errorString": "INVALID_REQUEST"
-}
-'''
+@app.errorhandler(requests.exceptions.HTTPError)
+def handle_pandora_error(err):
+    traceback.print_tb(err.__traceback__)
+
+    if not request.headers.get("X-PandoraAuthToken"):
+        return jsonify({}), 401
+
+    return jsonify({}), err.response.status_code
+
 
 @app.route("/")
+def home():
+    return redirect(url_for("show_playlists"))
+
+@app.route("/login/")
+def login_page():
+    return render_template("login.html")
+
+@app.route("/show-all", methods=["GET", "POST"])
 def show_playlists():
-    pandora_client = pandora.Pandora.connect()
-    pandora_playlists = pandora_client.get_all_playlists()
-    playlist_info = [{"name": playlist["name"], "id": playlist["pandoraId"]} for playlist in pandora_playlists["items"]]
-    return render_template("index.html", playlists=playlist_info)
+    if request.method == "POST":
+        pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
+        pandora_playlists = pandora_client.get_all_playlists()
+        playlist_info = [{"name": playlist["name"], "id": playlist["pandoraId"]} for playlist in pandora_playlists["items"]]
+        return jsonify({"playlists": playlist_info})
+    elif request.method == "GET":
+        return render_template("index.html")
 
 @app.route("/create", methods=["POST"])
 def create_playlist():
+    if not request.headers.get("X-PandoraAuthToken"):
+        return jsonify({}), 401
+
     artist_name = request.form.get("artistName")
     artist_id = request.form.get("artistId")
 
@@ -42,19 +59,26 @@ def create_playlist():
 
         artist_id = search_result[0]["id"]
 
-    return jsonify({"created": createplaylist.discography_playlist(artist_name, artist_id)})
+    return jsonify({"created": createplaylist.discography_playlist(artist_name, artist_id,
+        pandora_config={"auth_token": request.headers.get("X-PandoraAuthToken")})})
+       
 
-@app.route("/display/<id>")
-def display_playlist(id):
-    pandora_client = pandora.Pandora.connect()
-    playlist_info = pandora_client.get_playlist_info(id)
-    return render_template("playlist.html", playlist_id=id, tracks=pandora_client.get_playlist_tracks(playlist_info))
+@app.route("/display", methods=["GET", "POST"])
+def display_playlist():
+    if request.method == "POST":
+        id = request.form["id"]
+        pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
+        playlist_info = pandora_client.get_playlist_info(id)
+        return jsonify({"tracks": pandora_client.get_playlist_tracks(playlist_info)})
+    elif request.method == "GET":
+        id = request.args.get("id")
+        return render_template("playlist.html", playlist_id=id)
 
 @app.route("/save/<id>", methods=["POST"])
 def save_playlist(id):
     new_tracks = json.loads(request.form["tracks"])
 
-    pandora_client = pandora.Pandora.connect()
+    pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
     playlist_info = pandora_client.get_playlist_info(id)
     pandora_client.update_playlist(playlist_info, new_tracks)
 
@@ -65,7 +89,7 @@ def library_add_from_playlist():
     playlist_id = request.form["playlistId"]
     tracks = json.loads(request.form["tracks"])
 
-    pandora_client = pandora.Pandora.connect()
+    pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
     playlist_info = pandora_client.get_playlist_info(playlist_id)
     pandora_client.library_add_from_playlist(playlist_info, tracks)
 
