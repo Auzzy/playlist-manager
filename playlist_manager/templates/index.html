@@ -160,6 +160,11 @@ function createPlaylistSelectArtist(node) {
 $("#create-playlist-button").click(function(event) {
     createPlaylist();
 });
+$("#artist-name").keyup(function(evt) {
+    if (evt.key === "Enter") {
+        $("#create-playlist-button").click();
+    }
+})
 
 $("#modal-artist-choices").on("click", ".list-group-item", function() {
     createPlaylistSelectArtist(this);

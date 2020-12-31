@@ -20,7 +20,7 @@
         </div>
     </div>
     <div class="row">
-        <ul id="playlist-tracks" data-playlist-id="{{ playlist_id }}" class="list-group col">
+        <ul id="playlist-tracks" data-playlist-id="{{ playlist_id }}" class="list-group col" tabindex="0">
         {% for track in tracks %}
             <li data-id="{{ track['item_id'] }}" data-name="{{ track['name'] }}" data-artist="{{ track['artist'] }}" data-album="{{ track['album'] }}" class="list-group-item"></li>
         {% endfor %}
@@ -35,6 +35,7 @@
 {% block css %}
 #playlist-tracks {
     cursor: move;
+    outline: none;
 }
 
 #playlist-save, #playlist-undo, #playlist-reset {
@@ -235,29 +236,34 @@ $("#playlist-library-add").click(function() {
     $.post("{{ url_for('library_add_from_playlist') }}", data);
 });
 
-$("#playlist-tracks").on("click", "li", event => {
-    var clicked = $(event.target).closest("li");
-    if (clicked.hasClass("selected")) {
-        if (event.ctrlKey) { 
-            clicked.removeClass("selected");
-        }
-    } else {
-        if (event.ctrlKey) {
-            clicked.addClass("selected");
-        } else {
-            $("#playlist-tracks li").removeClass("selected");
-            clicked.addClass("selected");
-        }
+
+$("#playlist-tracks").mouseenter(function() {
+    $("#playlist-tracks").focus();
+});
+
+$("#playlist-tracks").mouseleave(function() {
+    $("#playlist-tracks").blur();
+});
+
+$("#playlist-tracks").keydown(function(e) {
+    if (e.key === "Shift" || e.key === "Control") {
+        $("#playlist-tracks").css("cursor", "pointer");
     }
-    updateActionButtons();
+});
+
+$("#playlist-tracks").keyup(function(e) {
+    if (e.key === "Shift" || e.key === "Control") {
+        $("#playlist-tracks").css("cursor", "move");
+    }
 });
 
 
 new Sortable($("#playlist-tracks").get(0), {
-	multiDrag: true,
+    multiDrag: true,
     multiDragKey: "Ctrl",
-	fallbackTolerance: 3, // So that we can select items on mobile
-	animation: 150,
+    fallbackTolerance: 3, // So that we can select items on mobile
+    animation: 150,
+    selectedClass: "selected",
     onUpdate: function (evt) {
         if (evt.items.length) {
             var moveInfo = arrayZip(
@@ -278,6 +284,7 @@ new Sortable($("#playlist-tracks").get(0), {
 
 var mutationObserver = new MutationObserver(function() {
     updateSelectedCount();
+    updateActionButtons();
 });
 
 var originalTracks;

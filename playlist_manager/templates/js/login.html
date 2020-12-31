@@ -7,6 +7,12 @@ $("#login-auth-token").click(function() {
     {% endif %}
 });
 
+$("#user-auth-token").keyup(function (evt) {
+    if (evt.key === "Enter") {
+        $("#login-auth-token").click();
+    }
+});
+
 function openLoginOnUnauth(jqXHR, loginCallback) {
     if (jqXHR.status === 401) {
         $("#modal-login").modal();
