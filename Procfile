@@ -1,0 +1,1 @@
+web: gunicorn playlist_manager.playlist_manager:app
