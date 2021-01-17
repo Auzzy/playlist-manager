@@ -7,15 +7,57 @@
             <h2>Playlists</h2>
         </div>
     </div>
-    <div class="row">
-        <div class="input-group col-5 mb-3">
-            <input type="text" class="form-control" id="artist-name" placeholder="Artist...">
-            <div class="input-group-append">
-                <button id="create-playlist-button" type="button" class="btn btn-primary">Create Playlist</button>
+    <div class="card">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-5 mb-3">
+                    <input type="text" class="form-control" id="artist-name" placeholder="Artist...">
+                </div>
+                <div class="col">
+                    <button id="create-playlist-button" type="button" class="btn btn-primary">Create Playlist</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <span style="font-weight: bold">Release Types: </span>
+                    <div class="form-check form-check-inline">
+                        <label class="form-check-label mr-1" for="albums-checkbox" style="color: #6c757d;">Albums</label>
+                        <input class="form-check-input mr-0" type="checkbox" id="albums-checkbox" disabled checked>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <label class="form-check-label mr-1" for="eps-checkbox">EPs</label>
+                        <input class="form-check-input mr-0" type="checkbox" id="eps-checkbox" />
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <label class="form-check-label mr-1" for="singles-checkbox">Singles</label>
+                        <input class="form-check-input mr-0" type="checkbox" id="singles-checkbox" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <span style="font-weight: bold">Release Sub-Types: </span>
+                    <div class="form-check form-check-inline">
+                        <label class="form-check-label mr-1" for="compilations-checkbox">Compilations</label>
+                        <input class="form-check-input mr-0" type="checkbox" id="compilations-checkbox" />
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <label class="form-check-label mr-1" for="remixes-checkbox">Remixes</label>
+                        <input class="form-check-input mr-0" type="checkbox" id="remixes-checkbox" />
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <label class="form-check-label mr-1" for="live-checkbox">Live</label>
+                        <input class="form-check-input mr-0" type="checkbox" id="live-checkbox" />
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <label class="form-check-label mr-1" for="soundtracks-checkbox">Sountracks</label>
+                        <input class="form-check-input mr-0" type="checkbox" id="soundtracks-checkbox" />
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="row">
+    <div class="row mt-3">
         <div class="col">
             <div id="playlist-list" class="list-group">
             {% for playlist in playlists %}
@@ -79,7 +121,17 @@ function createPlaylist() {
         .append($("<i></i>")
             .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
 
-    $.post("{{ url_for('create_playlist') }}", {artistName: $("#artist-name").val()})
+    var data = {
+        artistName: $("#artist-name").val(),
+        eps: $("#eps-checkbox").prop("checked"),
+        singles: $("#singles-checkbox").prop("checked"),
+        compilations: $("#compilations-checkbox").prop("checked"),
+        remixes: $("#remixes-checkbox").prop("checked"),
+        live: $("#live-checkbox").prop("checked"),
+        soundtracks: $("#soundtracks-checkbox").prop("checked")
+    };
+
+    $.post("{{ url_for('create_playlist') }}", data)
         .done(function(response) {
             if (response.hasOwnProperty("created")) {
                 loadPlaylists()
