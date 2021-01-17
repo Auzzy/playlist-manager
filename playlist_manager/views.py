@@ -42,6 +42,14 @@ def create_playlist():
     if not request.headers.get("X-PandoraAuthToken"):
         return jsonify({}), 401
 
+    release_filter = musicbrainz.Filter.create(
+        include_eps=request.form.get("eps", "False") == "True",
+        include_singles=request.form.get("singles", "False") == "True",
+        include_compilations=request.form.get("compilations", "False") == "True",
+        include_remixes=request.form.get("remixes", "False") == "True",
+        include_live=request.form.get("live", "False") == "True",
+        include_soundtracks=request.form.get("soundtracks", "False") == "True")
+
     artist_name = request.form.get("artistName")
     artist_id = request.form.get("artistId")
 
@@ -59,8 +67,12 @@ def create_playlist():
 
         artist_id = search_result[0]["id"]
 
-    return jsonify({"created": createplaylist.discography_playlist(artist_name, artist_id,
-        pandora_config={"auth_token": request.headers.get("X-PandoraAuthToken")})})
+    created_playlist_name = createplaylist.discography_playlist(
+        artist_name,
+        artist_id,
+        release_filter=release_filter,
+        pandora_config={"auth_token": request.headers.get("X-PandoraAuthToken")})
+    return jsonify({"created": created_playlist_name})
        
 
 @app.route("/display", methods=["GET", "POST"])
