@@ -13,8 +13,11 @@
                 <div class="col-5 mb-3">
                     <input type="text" class="form-control" id="artist-name" placeholder="Artist...">
                 </div>
-                <div class="col">
+                <div class="col-2">
                     <button id="create-playlist-button" type="button" class="btn btn-primary">Create Playlist</button>
+                </div>
+                <div class="col">
+                    <p class="text-left" id="create-playlist-error" style="color: red;"></p>
                 </div>
             </div>
             <div class="row">
@@ -117,6 +120,7 @@ function loadPlaylists() {
 }
 
 function createPlaylist() {
+    $("#create-playlist-error").empty();
     $("#create-playlist-button")
         .append($("<i></i>")
             .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
@@ -165,8 +169,15 @@ function createPlaylist() {
             }
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
-            openLoginOnUnauth(jqXHR, createPlaylist);
             $("#create-playlist-button .loader").remove();
+
+            if (jqXHR.status === 404) {
+                var responseJson = JSON.parse(jqXHR.responseText);
+                $("#create-playlist-error").text(responseJson["error"]);
+            } else {
+                openLoginOnUnauth(jqXHR, createPlaylist);
+                $("#create-playlist-button .loader").remove();
+            }
         });
 }
 

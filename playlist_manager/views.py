@@ -55,7 +55,9 @@ def create_playlist():
 
     if not artist_id:
         search_result = musicbrainz.MusicBrainz.connect().search_artist(artist_name, 85)
-        if len(search_result) > 1:
+        if not search_result:
+            return jsonify({"error": f"Could not find {artist_name}"}), 404
+        elif len(search_result) > 1:
             choices = []
             for artist in search_result:
                 choices.append({
