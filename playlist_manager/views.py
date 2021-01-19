@@ -83,7 +83,9 @@ def display_playlist():
         id = request.form["id"]
         pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
         playlist_info = pandora_client.get_playlist_info(id)
-        return jsonify({"tracks": pandora_client.get_playlist_tracks(playlist_info)})
+        return jsonify({
+            "tracks": pandora_client.get_playlist_tracks(playlist_info)
+        })
     elif request.method == "GET":
         id = request.args.get("id")
         return render_template("playlist.html", playlist_id=id)
