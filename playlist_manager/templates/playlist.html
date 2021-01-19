@@ -82,20 +82,29 @@ function displayTrack(root, trackno) {
     var name = $(root).attr("data-name");
     var artist = $(root).attr("data-artist");
     var album = $(root).attr("data-album");
+    if ($(root).attr("data-in-library") === "true") {
+        var libraryIcon = $("<i></i>")
+            .addClass("fas fa-check")
+            .addClass("text-success")  // green
+            .css("padding-right", "10px;");
+    } else {
+        var libraryIcon = $("<i></i>")
+            .addClass("fas fa-plus")
+            .addClass("text-info")  // green
+            .css("cursor", "pointer")
+            .css("padding-right", "10px;")
+            .click(function() {
+                libraryAdd($(this).parents('li'));
+            });
+    }
+
     return $(root)
         // Text display
         .html(`${trackno}. ${name} - <span style="font-size: 80%; color: rgb(128,128,128);">by ${artist} (from ${album})</span>`)
         // Action buttons
         .append($("<span></span>")
             .addClass("float-right")
-            .append($("<i></i>")
-                .addClass("fas fa-plus")
-                .addClass("text-info")  // green
-                .css("cursor", "pointer")
-                .css("padding-right", "10px;")
-                .click(function() {
-                    libraryAdd($(this).parents('li'));
-                }))
+            .append(libraryIcon)
             .append($("<i></i>")
                 .addClass("far fa-trash-alt")
                 .addClass("text-danger")  // red
@@ -110,15 +119,17 @@ function loadPlaylistTracks() {
     return $.post("{{ url_for('display_playlist') }}", {id: "{{ playlist_id }}"})
         .then(function(response) {
             $("#playlist-tracks").empty();
+
             response["tracks"].forEach((track, index) => {
                 $("#playlist-tracks")
                     .append(displayTrack(
                         $("<li></li>")
                             .addClass("list-group-item")
                             .attr("data-id", track["item_id"])
-                            .attr("data-name", track['name'])
-                            .attr("data-artist", track['artist'])
-                            .attr("data-album", track['album']),
+                            .attr("data-name", track["name"])
+                            .attr("data-artist", track["artist"])
+                            .attr("data-album", track["album"])
+                            .attr("data-in-library", track["in_library"]),
                         index + 1));
             });
         },
