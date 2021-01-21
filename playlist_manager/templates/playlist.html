@@ -265,9 +265,7 @@ $("#playlist-delete").click(function() {
 });
 
 $("#playlist-library-add").click(function() {
-    var selectedTrackIds = $("#playlist-tracks li.selected").map(function() {return $(this).attr("data-id")}).get();
-    var data = {tracks: JSON.stringify(selectedTrackIds), playlistId: "{{ playlist_id }}"};
-    $.post("{{ url_for('library_add_from_playlist') }}", data);
+    libraryAdd($("#playlist-tracks li.selected"));
 });
 
 $("#playlist-tracks").keydown(function(e) {
