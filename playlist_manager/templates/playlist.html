@@ -78,29 +78,37 @@ function toggleAttr(condition, selector, attrName) {
 }
 
 
-function displayTrack(root, trackno) {
-    var name = $(root).attr("data-name");
-    var artist = $(root).attr("data-artist");
-    var album = $(root).attr("data-album");
+function displayTrackLibraryIcon(root) {
+    var base = $("<i></i>")
+        .attr("data-control", "library-add")
+        .css("padding-right", "10px;");
+
     if ($(root).attr("data-in-library") === "true") {
-        var libraryIcon = $("<i></i>")
+        return base
             .addClass("fas fa-check")
-            .addClass("text-success")  // green
-            .css("padding-right", "10px;");
+            .addClass("text-success");
     } else {
-        var libraryIcon = $("<i></i>")
+        return base
             .addClass("fas fa-plus")
             .addClass("text-info")  // green
             .css("cursor", "pointer")
-            .css("padding-right", "10px;")
             .click(function(event) {
                 libraryAdd($(this).parents('li'));
             });
     }
+}
+
+function displayTrack(root, trackno, library) {
+    var name = $(root).attr("data-name");
+    var artist = $(root).attr("data-artist");
+    var album = $(root).attr("data-album");
+
+    var libraryIcon = displayTrackLibraryIcon(root);
 
     var deleteIcon = $("<i></i>")
         .addClass("far fa-trash-alt")
         .addClass("text-danger")  // red
+        .attr("data-control", "delete")
         .css("cursor", "pointer")
         .css("padding-left", "10px")
         .click(function(event) {
@@ -204,11 +212,16 @@ function deleteTracks(nodeList) {
 }
 
 function libraryAdd(nodeList) {
-    var tracks = [];
-    $(nodeList).each((index, val) => tracks.push($(val).attr("data-id")));
+    var tracks = $(nodeList).map(function() {return $(this).attr("data-id")}).get();
 
     var data = {tracks: JSON.stringify(tracks), playlistId: "{{ playlist_id }}"};
     $.post("{{ url_for('library_add_from_playlist') }}", data)
+        .done(function() {
+            $(nodeList).each(function(index, node) {
+                $(node).attr("data-in-library", "true");
+                $(node).find("[data-control='library-add']").replaceWith(displayTrackLibraryIcon(node));
+            });
+        })
         .fail(function(jqXHR, textStatus, errorThrown) {
             openLoginOnUnauth(jqXHR, () => libraryAdd(nodeList));
         });
@@ -271,10 +284,7 @@ $("#playlist-tracks").keyup(function(e) {
 
 // Prevent SelectorJS from deselecting items when the delete or add to library
 // buttons are clicked.
-$("#playlist-tracks li .controls .fas").on('click', function(event) {
-    console.log("CLICK");
-});
-$("#playlist-delete, #playlist-library-add").on('pointerup mouseup touchend', function(event){
+$("#playlist-delete").add("#playlist-library-add").on('pointerup mouseup touchend', function(event){
     event.stopPropagation();
 });
 
