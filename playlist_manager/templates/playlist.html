@@ -93,10 +93,25 @@ function displayTrack(root, trackno) {
             .addClass("text-info")  // green
             .css("cursor", "pointer")
             .css("padding-right", "10px;")
-            .click(function() {
+            .click(function(event) {
                 libraryAdd($(this).parents('li'));
             });
     }
+
+    var deleteIcon = $("<i></i>")
+        .addClass("far fa-trash-alt")
+        .addClass("text-danger")  // red
+        .css("cursor", "pointer")
+        .css("padding-left", "10px")
+        .click(function(event) {
+            deleteTracks($(this).parents('li'));
+        });
+
+    // Prevent SelectorJS from deselecting items when the delete or add to library
+    // buttons are clicked.
+    $(libraryIcon).add(deleteIcon).on('pointerup mouseup touchend', function(event) {
+        event.stopPropagation();
+    });
 
     return $(root)
         // Text display
@@ -104,15 +119,9 @@ function displayTrack(root, trackno) {
         // Action buttons
         .append($("<span></span>")
             .addClass("float-right")
+            .addClass("controls")
             .append(libraryIcon)
-            .append($("<i></i>")
-                .addClass("far fa-trash-alt")
-                .addClass("text-danger")  // red
-                .css("cursor", "pointer")
-                .css("padding-left", "10px")
-                .click(function() {
-                    deleteTracks($(this).parents('li'));
-                })));
+            .append(deleteIcon));
 }
 
 function loadPlaylistTracks() {
@@ -266,6 +275,15 @@ $("#playlist-tracks").keyup(function(e) {
     if (e.key === "Shift" || e.key === "Control") {
         $("#playlist-tracks").css("cursor", "move");
     }
+});
+
+// Prevent SelectorJS from deselecting items when the delete or add to library
+// buttons are clicked.
+$("#playlist-tracks li .controls .fas").on('click', function(event) {
+    console.log("CLICK");
+});
+$("#playlist-delete, #playlist-library-add").on('pointerup mouseup touchend', function(event){
+    event.stopPropagation();
 });
 
 
