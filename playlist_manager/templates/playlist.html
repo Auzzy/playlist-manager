@@ -256,15 +256,6 @@ $("#playlist-library-add").click(function() {
     $.post("{{ url_for('library_add_from_playlist') }}", data);
 });
 
-
-$("#playlist-tracks").mouseenter(function() {
-    $("#playlist-tracks").focus();
-});
-
-$("#playlist-tracks").mouseleave(function() {
-    $("#playlist-tracks").blur();
-});
-
 $("#playlist-tracks").keydown(function(e) {
     if (e.key === "Shift" || e.key === "Control") {
         $("#playlist-tracks").css("cursor", "pointer");
