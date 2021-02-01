@@ -14,7 +14,8 @@
                     <input type="text" class="form-control" id="artist-name" placeholder="Artist...">
                 </div>
                 <div class="col-2">
-                    <button id="create-playlist-button" type="button" class="btn btn-primary">Create Playlist</button>
+                    <button id="discography-playlist-button" type="button" class="btn btn-primary" style="margin-bottom: 10px;">Discography</button>
+                    <button id="similar-artists-playlist-button" type="button" class="btn btn-primary">Similar Artists</button>
                 </div>
                 <div class="col">
                     <p class="text-left" id="create-playlist-error" style="color: red;"></p>
@@ -82,7 +83,34 @@
             </div>
             <div class="modal-body">
                 <p>Found more than one match for &quot;<span id="modal-artist-name"></span>&quot;. Please select one:</p>
-                <div id="modal-artist-choices" class="list-group"></div>
+                <div id="modal-artist-choices"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modal-similar-artist-disambiguation" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Similar Artist Disambiguation</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <p>Needs disambiguation:</p>
+                    <div id="modal-similar-artist-choices"></div>
+                </div>
+                <div>
+                    <p>Automatically chosen:</p>
+                    <ul id="modal-similar-artist-selected" class="list-group"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="similar-artists-create" type="button" class="btn btn-primary">Create</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
             </div>
         </div>
     </div>
@@ -119,9 +147,10 @@ function loadPlaylists() {
         });
 }
 
-function createPlaylist() {
+
+function createPlaylist(buttonSelector, endpointUrl, successCallback) {
     $("#create-playlist-error").empty();
-    $("#create-playlist-button")
+    $(buttonSelector)
         .append($("<i></i>")
             .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
 
@@ -135,14 +164,14 @@ function createPlaylist() {
         soundtracks: $("#soundtracks-checkbox").prop("checked")
     };
 
-    $.post("{{ url_for('create_playlist') }}", data)
+    $.post(endpointUrl, data)
         .done(function(response) {
             if (response.hasOwnProperty("created")) {
                 loadPlaylists()
                     .done(function() {
                         // Reset inputs
                         $("#artist-name").val("");
-                        $("#create-playlist-button .loader").remove();
+                        $(`${buttonSelector} .loader`).remove();
                     });
             } else {
                 // If multiple artists were found for the search term, setup and
@@ -150,13 +179,17 @@ function createPlaylist() {
                 $("#modal-artist-choices").empty();
 
                 $("#modal-artist-name").text(response["artist"]);
+                $("#modal-artist-choices")
+                        .removeClass()
+                        .addClass("list-group")
+                        .attr("data-search", response["artist"]);
+
                 response["choices"].forEach(choice => {
                     var label = choice["name"];
                     if (choice["disambiguation"]) {
                         label += ` (${choice["disambiguation"]})`;
                     }
                     $("#modal-artist-choices")
-                        .attr("data-search", response["artist"])
                         .append($("<a></a>")
                             .addClass("list-group-item list-group-item-action")
                             .attr("href", "#")
@@ -166,22 +199,32 @@ function createPlaylist() {
                 });
 
                 $("#modal-artist-disambiguation").modal();
+                $("#modal-artist-choices").on("click", ".list-group-item", function() {
+                    successCallback(this, response);
+                });
             }
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
-            $("#create-playlist-button .loader").remove();
+            $(`${buttonSelector} .loader`).remove();
 
             if (jqXHR.status === 404) {
                 var responseJson = JSON.parse(jqXHR.responseText);
                 $("#create-playlist-error").text(responseJson["error"]);
             } else {
-                openLoginOnUnauth(jqXHR, createPlaylist);
-                $("#create-playlist-button .loader").remove();
+                openLoginOnUnauth(jqXHR, () => createPlaylist(endpointUrl, successCallback, buttonSelector));
+                $(`${buttonSelector} .loader`).remove();
             }
         });
 }
 
-function createPlaylistSelectArtist(node) {
+function createDiscographyPlaylist() {
+    createPlaylist(
+        "#discography-playlist-button",
+        "{{ url_for('create_discography_playlist') }}",
+        createDiscographyPlaylistUnambiguous);
+}
+
+function createDiscographyPlaylistUnambiguous(node, response) {
     if ($(node).hasClass("disabled")) {
         event.stopImmediatePropagation();
         event.stopPropagation();
@@ -196,11 +239,12 @@ function createPlaylistSelectArtist(node) {
         .append($("<i></i>")
             .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
 
-    $.post("{{ url_for('create_playlist') }}", {artistName: $(node).parent().attr("data-search"), artistId: $(node).attr("data-artist-id")})
+    $.post("{{ url_for('create_discography_playlist') }}", {artistName: $(node).parent().attr("data-search"), artistId: $(node).attr("data-artist-id")})
         .done(function() {
             loadPlaylists()
                 .done(function() {
                     $("#modal-artist-disambiguation").modal("hide");
+                    $("#modal-artist-choices").off("click", ".list-group-item");
 
                     // Reset inputs
                     $("#artist-name").val("");
@@ -209,37 +253,159 @@ function createPlaylistSelectArtist(node) {
                         .empty()
                         .removeAttr("data-search");
                     $(node).remove(".loader");
-                    $("#create-playlist-button .loader").remove();
+                    $("#discography-playlist-button .loader").remove();
                 });
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
-            openLoginOnUnauth(jqXHR, () => createPlaylistSelectArtist(node));
+            openLoginOnUnauth(jqXHR, () => createDiscographyPlaylistUnambiguous(node));
             $("#modal-artist-choices .loader").remove();
             $("#modal-artist-choices .list-group-item")
                 .removeClass("disabled");
         });
 }
 
-$("#create-playlist-button").click(function(event) {
-    createPlaylist();
-});
-$("#artist-name").keyup(function(evt) {
-    if (evt.key === "Enter") {
-        $("#create-playlist-button").click();
-    }
-})
 
-$("#modal-artist-choices").on("click", ".list-group-item", function() {
-    createPlaylistSelectArtist(this);
+
+function createSimilarArtistsPlaylist() {
+    createPlaylist(
+        "#similar-artists-playlist-button",
+        "{{ url_for('create_similar_artists_playlist') }}",
+        (node, response) => {
+            $("#modal-similar-artist-disambiguation")
+                .attr("data-search", $("#modal-artist-choices").attr("data-search"))
+                .attr("data-artist-id", $(node).attr("data-artist-id"));
+
+            $("#modal-artist-disambiguation").modal('hide');
+
+            createSimilarArtistsPlaylistDisambiguateArtists(node, response);
+        });
+}
+
+function createSimilarArtistsPlaylistDisambiguateArtists(node, response) {
+    function artistLabel(info) {
+        var label = info["name"];
+        if (info["disambiguation"]) {
+            label += ` (${info["disambiguation"]})`;
+        }
+
+        return label;
+    }
+
+    var srcArtistInfo = response["choices"].find(srcArtistChoice => {
+        return srcArtistChoice["id"] === $(node).attr("data-artist-id");
+    });
+
+    $("#modal-similar-artist-choices").empty();
+    $("#modal-similar-artist-selected").empty();
+
+    srcArtistInfo["similar"].forEach(similarArtistInfo => {
+        if (similarArtistInfo["choices"].length == 1) {
+            var info = similarArtistInfo["choices"][0];
+            $("#modal-similar-artist-selected")
+                .append($("<li></li>")
+                    .addClass("list-group-item")
+                    .attr("data-selected-artist-id", info["id"])
+                    .text(artistLabel(info)));
+        } else {
+            var menuItems = similarArtistInfo["choices"].map(similarArtist => {
+                var label = artistLabel(similarArtist);
+                return $("<a></a>")
+                    .addClass("dropdown-item")
+                    .attr("href", "#")
+                    .attr("data-artist-id", similarArtist["id"])
+                    .text(label)
+                    .click(function() {
+                        $(`[data-artist='${similarArtistInfo["name"]}'`)
+                            .attr("data-selected-artist-id", $(this).attr("data-artist-id"))
+                            .text(label);
+                    });
+            });
+
+            $("#modal-similar-artist-choices")
+                .append($("<div></div>")
+                    .append($("<div></div>")
+                        .addClass("btn-group dropright")
+                        .append($("<button></button>")
+                            .attr("type", "button")
+                            .addClass("btn btn-secondary")
+                            .text(similarArtistInfo["name"])
+                            .attr("data-artist", similarArtistInfo["name"]))
+                        .append($("<button></button>")
+                            .attr("type", "button")
+                            .addClass("btn btn-secondary dropdown-toggle dropdown-toggle-split")
+                            .attr("data-toggle", "dropdown")
+                            .append($("<span></span>").addClass("sr-only").text("Toggle Dropright")))
+                        .append($("<div></div>")
+                            .addClass("dropdown-menu")
+                            .append(menuItems))));
+        }
+    });
+
+    $("#modal-similar-artist-disambiguation").modal();
+}
+
+function createSimilarArtistPlaylistPost() {
+    $("#modal-artist-choices .list-group-item")
+        .addClass("disabled");
+
+    $("#similar-artists-create")
+        .append($("<i></i>")
+            .addClass("loader fas fa-circle-notch fa-spin fa-sm"));
+
+    var data = {
+        artistName: $("#modal-similar-artist-disambiguation").attr("data-search"),
+        artistId: $("#modal-similar-artist-disambiguation").attr("data-artist-id"),
+        similarArtistIds: JSON.stringify(
+            $("#modal-similar-artist-disambiguation [data-selected-artist-id]")
+                .map((k, element) => $(element).attr("data-selected-artist-id"))
+                .get())
+    };
+
+    $.post("{{ url_for('create_similar_artists_playlist') }}", data)
+        .done(function() {
+            loadPlaylists()
+                .done(function() {
+                    $("#modal-similar-artist-disambiguation").modal("hide");
+
+                    // Reset inputs
+                    $("#similar-artist-playlist-button .loader").remove();
+                });
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+            openLoginOnUnauth(jqXHR, createSimilarArtistPlaylistPost);
+        });
+}
+
+
+$("#discography-playlist-button").click(function(event) {
+    createDiscographyPlaylist();
+});
+
+$("#similar-artists-playlist-button").click(function(event) {
+    createSimilarArtistsPlaylist();
 });
 
 $("#playlist-list").on("click", ".list-group-item", function() {
     window.location.href = "{{ url_for('display_playlist') }}?id=" + $(this).attr("data-playlist-id");
 });
 
+$("#similar-artists-create").click(function() {
+    // console.log(JSON.stringify($("#modal-similar-artist-disambiguation [data-selected-artist-id]").map((k, element) => $(element).attr("data-selected-artist-id")).get()));
+    createSimilarArtistPlaylistPost();
+});
+
 $("#modal-artist-disambiguation").on("hide.bs.modal", function() {
-    $("#create-playlist-button .loader").remove();
+    $("#discography-playlist-button .loader").remove();
     $("#modal-artist-choices").empty();
+});
+
+$("#modal-similar-artist-disambiguation").on("hide.bs.modal", function() {
+    $("#similar-artist-playlist-button .loader").remove();
+    $("#modal-similar-artist-choices").empty();
+    $("#modal-similar-artist-selected").empty();
+    $("#modal-similar-artist-disambiguation")
+        .removeAttr("data-artist-name")
+        .removeAttr("data-artist-id");
 });
 
 loadPlaylists();
