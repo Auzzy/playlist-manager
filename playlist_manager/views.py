@@ -32,7 +32,8 @@ def show_playlists():
     if request.method == "POST":
         pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
         pandora_playlists = pandora_client.get_all_playlists()
-        playlist_info = [{"name": playlist["name"], "id": playlist["pandoraId"]} for playlist in pandora_playlists["items"]]
+        thumbs_up_ids = [info["pandoraId"] for key, info in pandora_playlists["annotations"].items() if info.get("linkedType") in ("StationThumbs", "MyThumbsUp", "SharedListening")]
+        playlist_info = [{"name": playlist["name"], "id": playlist["pandoraId"]} for playlist in pandora_playlists["items"] if playlist["pandoraId"] not in thumbs_up_ids]
         return jsonify({"playlists": playlist_info})
     elif request.method == "GET":
         return render_template("index.html")
