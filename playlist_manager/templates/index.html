@@ -127,12 +127,36 @@
 
 {% block js %}
 function appendPlaylist(playlist) {
+    var tracksBadge = null;
+    var durationBadge = null;
+    if (playlist["totalTracks"] > 0) {
+        tracksBadge = $("<span></span>")
+            .addClass("badge badge-info badge-pill")
+            .css("font-style", "italic")
+            .text(playlist["totalTracks"]);
+
+        var durationMins = Math.floor(playlist["duration"] / 60);
+        var durationHours = Math.floor(durationMins / 60);
+        var remainingMins = durationMins - durationHours * 60;
+        durationBadge = $("<span></span>")
+            .addClass("badge badge-secondary")
+            .text(`${durationHours.toString().padStart(1, '0')}:${remainingMins.toString().padStart(2, '0')}`);
+    } else {
+        tracksBadge = $("<span></span>")
+            .addClass("badge badge-danger badge-pill")
+            .text("empty");
+        // Don't show duration when empty
+    }
+
     $("#playlist-list")
         .append($("<a></a>")
-            .addClass("list-group-item list-group-item-action")
+            .addClass("list-group-item list-group-item-action d-flex justify-content-between align-items-center")
             .attr("href", "#")
             .attr("data-playlist-id", playlist["id"])
-            .text(playlist["name"]));
+            .text(playlist["name"])
+            .append($("<div></div>")
+                .append(tracksBadge)
+                .append(durationBadge)));
 }
 
 function loadPlaylists() {

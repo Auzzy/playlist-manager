@@ -42,11 +42,20 @@ def login_page():
 
 @app.route("/show-all", methods=["GET", "POST"])
 def show_playlists():
+    def get_playlist_info(pandora_playlists, playlist):
+        details = pandora_playlists["annotations"][playlist["pandoraId"]]
+        return {
+            "id": playlist["pandoraId"],
+            "name": playlist["name"],
+            "totalTracks": details["totalTracks"],
+            "duration": details["duration"]  # Seconds
+        }
+
     if request.method == "POST":
         pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
         pandora_playlists = pandora_client.get_all_playlists()
         thumbs_up_ids = [info["pandoraId"] for key, info in pandora_playlists["annotations"].items() if info.get("linkedType") in ("StationThumbs", "MyThumbsUp", "SharedListening")]
-        playlist_info = [{"name": playlist["name"], "id": playlist["pandoraId"]} for playlist in pandora_playlists["items"] if playlist["pandoraId"] not in thumbs_up_ids]
+        playlist_info = [get_playlist_info(pandora_playlists, playlist) for playlist in pandora_playlists["items"] if playlist["pandoraId"] not in thumbs_up_ids]
         return jsonify({"playlists": playlist_info})
     elif request.method == "GET":
         return render_template("index.html")
@@ -130,8 +139,11 @@ def display_playlist():
         id = request.form["id"]
         pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
         playlist_info = pandora_client.get_playlist_info(id)
+        print(json.dumps(playlist_info, indent=4))
         return jsonify({
-            "tracks": pandora_client.get_playlist_tracks(playlist_info)
+            "name": playlist_info["name"],
+            "tracks": pandora_client.get_playlist_tracks(playlist_info),
+            "duration": playlist_info["duration"]  # Seconds
         })
     elif request.method == "GET":
         id = request.args.get("id")

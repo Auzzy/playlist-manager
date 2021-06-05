@@ -5,6 +5,9 @@
     <div class="row">
         <a href="{{ url_for('show_playlists') }}"><i class="fas fa-long-arrow-alt-left"></i> Back to playlists</a>
     </div>
+    <div class="row">
+        <div id="playlist-info" class="col"></div>
+    </div>
     <div class="row justify-content-between">
         <div class="col-4" style="display: flex; align-items: flex-end; margin-bottom: 5px;">
             <i id="playlist-save" class="fas fa-save fa-lg text-success" style="margin-right: 5px;" disabled></i>
@@ -132,10 +135,11 @@ function displayTrack(root, trackno, library) {
             .append(deleteIcon));
 }
 
-function loadPlaylistTracks() {
+function loadPlaylistInfo() {
     return $.post("{{ url_for('display_playlist') }}", {id: "{{ playlist_id }}"})
         .then(function(response) {
             $("#playlist-tracks").empty();
+            $("#playlist-info").empty();
 
             response["tracks"].forEach((track, index) => {
                 $("#playlist-tracks")
@@ -149,9 +153,33 @@ function loadPlaylistTracks() {
                             .attr("data-in-library", track["in_library"]),
                         index + 1));
             });
+
+            $("#name").text(response["name"]);
+            $("#track-count").text(response["tracks"].length);
+
+            var durationMins = Math.floor(response["duration"] / 60);
+            var durationHours = Math.floor(durationMins / 60);
+            var remainingMins = durationMins - durationHours * 60;
+
+            $("#playlist-info")
+                .append($("<span></span>")
+                    .attr("id", "name")
+                    .css("font-size", "xx-large")
+                    .text(response["name"]))
+                .append($("<span></span>")
+                    .attr("id", "track-count")
+                    .addClass("badge badge-info badge-pill")
+                    .css("vertical-align", "50%")
+                    .css("font-style", "italic")
+                    .text(response["tracks"].length))
+                .append($("<span></span>")
+                    .attr("id", "duration")
+                    .addClass("badge badge-secondary")
+                    .css("vertical-align", "50%")
+                    .text(`${durationHours.toString().padStart(1, '0')}:${remainingMins.toString().padStart(2, '0')}`));
         },
         function(jqXHR, textStatus, errorThrown) {
-            openLoginOnUnauth(jqXHR, loadPlaylistTracks);
+            openLoginOnUnauth(jqXHR, loadPlaylistInfo);
         });
 }
 
@@ -317,7 +345,7 @@ var mutationObserver = new MutationObserver(function() {
 });
 
 var originalTracks;
-loadPlaylistTracks()
+loadPlaylistInfo()
     .done(function() {
         originalTracks = getPlaylistTracks();
 
