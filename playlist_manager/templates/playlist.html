@@ -135,6 +135,13 @@ function displayTrack(root, trackno, library) {
             .append(deleteIcon));
 }
 
+function secondsToClockHours(seconds) {
+    var durationMins = Math.floor(seconds / 60);
+    var durationHours = Math.floor(durationMins / 60);
+    var remainingMins = durationMins - durationHours * 60;
+    return `${durationHours.toString().padStart(1, '0')}:${remainingMins.toString().padStart(2, '0')}`;
+}
+
 function loadPlaylistInfo() {
     return $.post("{{ url_for('display_playlist') }}", {id: "{{ playlist_id }}"})
         .then(function(response) {
@@ -150,16 +157,13 @@ function loadPlaylistInfo() {
                             .attr("data-name", track["name"])
                             .attr("data-artist", track["artist"])
                             .attr("data-album", track["album"])
-                            .attr("data-in-library", track["in_library"]),
+                            .attr("data-in-library", track["in_library"])
+                            .attr("data-duration", track["duration"]),
                         index + 1));
             });
 
             $("#name").text(response["name"]);
             $("#track-count").text(response["tracks"].length);
-
-            var durationMins = Math.floor(response["duration"] / 60);
-            var durationHours = Math.floor(durationMins / 60);
-            var remainingMins = durationMins - durationHours * 60;
 
             $("#playlist-info")
                 .append($("<span></span>")
@@ -176,7 +180,8 @@ function loadPlaylistInfo() {
                     .attr("id", "duration")
                     .addClass("badge badge-secondary")
                     .css("vertical-align", "50%")
-                    .text(`${durationHours.toString().padStart(1, '0')}:${remainingMins.toString().padStart(2, '0')}`));
+                    .attr("data-duration", response["duration"])
+                    .text(secondsToClockHours(response["duration"])));
         },
         function(jqXHR, textStatus, errorThrown) {
             openLoginOnUnauth(jqXHR, loadPlaylistInfo);
@@ -213,6 +218,7 @@ function undoLastAction() {
     changes.splice(changes.length - 1, 1);
 
     updateActionButtons();
+    updatePlaylistInfo();
 }
 
 function updateActionButtons() {
@@ -227,6 +233,18 @@ function updateSelectedCount() {
     $("#selected-count").text($("#playlist-tracks li.selected").length);
 }
 
+function updatePlaylistInfo() {
+    $("#track-count")
+        .text($("#playlist-tracks li").length);
+
+    var playlistDuration = $("#playlist-tracks li")
+            .map((k, node) => $(node).attr("data-duration"))
+            .toArray().reduce((a, b) => a + parseInt(b, 10), 0);
+    $("#duration")
+        .attr("data-duration", playlistDuration)
+        .text(secondsToClockHours(playlistDuration));
+}
+
 function deleteTracks(nodeList) {
     var deleted = ["delete"];
     $(nodeList)
@@ -237,6 +255,7 @@ function deleteTracks(nodeList) {
         .detach();
     changes.push(deleted);
     updateActionButtons();
+    updatePlaylistInfo();
 }
 
 function libraryAdd(nodeList) {
