@@ -184,7 +184,7 @@ function loadPlaylistInfo() {
                     .text(secondsToClockHours(response["duration"])));
         },
         function(jqXHR, textStatus, errorThrown) {
-            openLoginOnUnauth(jqXHR, loadPlaylistInfo);
+            openLoginOnUnauth(jqXHR, loadPage);
         });
 }
 
@@ -334,44 +334,48 @@ $("#playlist-delete").add("#playlist-library-add").on('pointerup mouseup touchen
 });
 
 
-new Sortable($("#playlist-tracks").get(0), {
-    multiDrag: true,
-    multiDragKey: "Ctrl",
-    fallbackTolerance: 3, // So that we can select items on mobile
-    animation: 150,
-    selectedClass: "selected",
-    onUpdate: function (evt) {
-        if (evt.items.length) {
-            var moveInfo = arrayZip(
-                evt.items.map(item => $(item).attr("data-id")),
-                evt.oldIndicies.map(info => info["index"]),
-                evt.newIndicies.map(info => info["index"]));
-        } else {
-            var moveInfo = [[$(evt.item).attr("data-id"), evt.oldIndex, evt.newIndex]];
-        }
-
-        moveInfo.splice(0, 0, "move");
-
-        changes.push(moveInfo);
-
-        updateActionButtons();
-    }
-});
-
-var mutationObserver = new MutationObserver(function() {
-    updateSelectedCount();
-    updateActionButtons();
-});
-
 var originalTracks;
-loadPlaylistInfo()
-    .done(function() {
-        originalTracks = getPlaylistTracks();
 
-        $("#playlist-tracks li").each((index, node) => {
-            mutationObserver.observe(node, {"attributeFilter": ["class"]});
-        });
+function loadPage() {
+    new Sortable($("#playlist-tracks").get(0), {
+        multiDrag: true,
+        multiDragKey: "Ctrl",
+        fallbackTolerance: 3, // So that we can select items on mobile
+        animation: 150,
+        selectedClass: "selected",
+        onUpdate: function (evt) {
+            if (evt.items.length) {
+                var moveInfo = arrayZip(
+                    evt.items.map(item => $(item).attr("data-id")),
+                    evt.oldIndicies.map(info => info["index"]),
+                    evt.newIndicies.map(info => info["index"]));
+            } else {
+                var moveInfo = [[$(evt.item).attr("data-id"), evt.oldIndex, evt.newIndex]];
+            }
+
+            moveInfo.splice(0, 0, "move");
+
+            changes.push(moveInfo);
+
+            updateActionButtons();
+        }
     });
+
+    var mutationObserver = new MutationObserver(function() {
+        updateSelectedCount();
+        updateActionButtons();
+    });
+
+    loadPlaylistInfo()
+        .done(function() {
+            originalTracks = getPlaylistTracks();
+
+            $("#playlist-tracks li").each((index, node) => {
+                mutationObserver.observe(node, {"attributeFilter": ["class"]});
+            });
+        });
+}
+loadPage();
 
 {% include "js/login.html" %}
 
