@@ -4,11 +4,30 @@ import requests
 import traceback
 from flask import g, jsonify, redirect, render_template, request, session, url_for
 
-from playlistmanager import pandora, musicbrainz
+from playlistmanager import musicbrainz
+from playlistmanager.services import get_service
+from playlistmanager.services.pandora import client as pandora
 from playlistmanager.discography_playlist import discography_playlist
-from playlistmanager.similar_artists_playlist import _get_similar_artists, similar_artists_playlist
+from playlistmanager.similar_artists_playlist import similar_artists_playlist
 
 from playlist_manager.playlist_manager import app
+
+
+@app.url_defaults
+def add_service_name(endpoint, values):
+    if "service_name" not in values:
+        values["service_name"] = g.service_name or "pandora"
+
+@app.url_value_preprocessor
+def pull_service_name(endpoint, values):
+    if not values:
+        values = {}
+
+    g.service_name = values.pop("service_name", "pandora")
+    # Should do something with this.
+    # if g.service_name not in get_supported_services():
+    #     pass
+
 
 
 def _search_musicbrainz(artist_name):
@@ -82,10 +101,11 @@ def create_discography_playlist():
         artist_id = search_result[0]["id"]
 
     created_playlist_name = discography_playlist(
+        g.service_name,
         artist_name,
         artist_id,
         release_filter=release_filter,
-        pandora_config={"auth_token": request.headers.get("X-PandoraAuthToken")})
+        client_config={"auth_token": request.headers.get("X-PandoraAuthToken")})
     return jsonify({"created": created_playlist_name})
 
 @app.route("/create/similar", methods=["POST"])
@@ -106,9 +126,11 @@ def create_similar_artists_playlist():
     similar_artist_ids = json.loads(request.form.get("similarArtistIds", "[]"))
 
     if not src_artist_id or not similar_artist_ids:
-        pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
+        service = get_service(g.service_name)
 
-        src_artist_choices = _get_similar_artists(pandora_client, src_artist_name)
+        client_config = service.auth_to_config(request.headers.get("X-PandoraAuthToken"))
+
+        src_artist_choices = service.search_artists(src_artist_name, client_config)
         for src_artist_choice in src_artist_choices:
             for similar_artist in src_artist_choice["similar"]:
                 similar_artist["choices"] = _search_musicbrainz(similar_artist["name"])
@@ -121,13 +143,14 @@ def create_similar_artists_playlist():
         similar_artist_ids = [similar["id"] for similar in src_artist_choices[0]["similar"].values()]
 
     created_playlist_name = similar_artists_playlist(
+        g.service_name,
         src_artist_name,
         src_artist_id,
         similar_artist_ids,
         release_filter=release_filter,
-        pandora_config={"auth_token": request.headers.get("X-PandoraAuthToken")})
+        client_config={"auth_token": request.headers.get("X-PandoraAuthToken")})
 
-    return jsonify({"created": created_playlist_name})  
+    return jsonify({"created": created_playlist_name})
 
 @app.route("/display", methods=["GET", "POST"])
 def display_playlist():
@@ -148,9 +171,10 @@ def display_playlist():
 def save_playlist(id):
     new_tracks = json.loads(request.form["tracks"])
 
-    pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
-    playlist_info = pandora_client.get_playlist_info(id)
-    pandora_client.update_playlist(playlist_info, new_tracks)
+    service = get_service(g.service_name)
+
+    client_config = service.auth_to_config(request.headers.get("X-PandoraAuthToken"))
+    service.update_playlist(id, new_tracks, client_config)
 
     return ""
 
@@ -159,8 +183,9 @@ def library_add_from_playlist():
     playlist_id = request.form["playlistId"]
     tracks = json.loads(request.form["tracks"])
 
-    pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
-    playlist_info = pandora_client.get_playlist_info(playlist_id)
-    pandora_client.library_add_from_playlist(playlist_info, tracks)
+    service = get_service(g.service_name)
+
+    client_config = service.auth_to_config(request.headers.get("X-PandoraAuthToken"))
+    service.add_playlist_tracks_to_library(id, new_tracks, client_config)
 
     return ""

@@ -407,7 +407,9 @@ $("#similar-artists-playlist-button").click(function(event) {
 });
 
 $("#playlist-list").on("click", ".list-group-item", function() {
-    window.location.href = "{{ url_for('display_playlist') }}?id=" + $(this).attr("data-playlist-id");
+    var baseUrl = "{{ url_for('display_playlist') }}";
+    var sep = baseUrl.includes("?") ? "&" : "?";
+    window.location.href = `${baseUrl}${sep}id=` + $(this).attr("data-playlist-id");
 });
 
 $("#similar-artists-create").click(function() {
