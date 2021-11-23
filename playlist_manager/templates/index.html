@@ -392,7 +392,8 @@ function createSimilarArtistPlaylistPost() {
                     $("#modal-similar-artist-disambiguation").modal("hide");
 
                     // Reset inputs
-                    $("#similar-artist-playlist-button .loader").remove();
+                    $("#artist-name").val("");
+                    $("#similar-artists-playlist-button .loader").remove();
                 });
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
@@ -414,7 +415,6 @@ $("#playlist-list").on("click", ".list-group-item", function() {
 });
 
 $("#similar-artists-create").click(function() {
-    // console.log(JSON.stringify($("#modal-similar-artist-disambiguation [data-selected-artist-id]").map((k, element) => $(element).attr("data-selected-artist-id")).get()));
     createSimilarArtistPlaylistPost();
 });
 
