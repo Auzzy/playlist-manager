@@ -36,10 +36,6 @@ def handle_pandora_error(err):
 def home():
     return redirect(url_for("show_playlists"))
 
-@app.route("/login/")
-def login_page():
-    return render_template("login.html")
-
 @app.route("/show-all", methods=["GET", "POST"])
 def show_playlists():
     def get_playlist_info(pandora_playlists, playlist):
