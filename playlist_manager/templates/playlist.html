@@ -157,7 +157,6 @@ function loadPlaylistInfo() {
                             .attr("data-name", track["name"])
                             .attr("data-artist", track["artist"])
                             .attr("data-album", track["album"])
-                            .attr("data-in-library", track["in_library"])
                             .attr("data-duration", track["duration"]),
                         index + 1));
             });
@@ -182,9 +181,21 @@ function loadPlaylistInfo() {
                     .css("vertical-align", "50%")
                     .attr("data-duration", response["duration"])
                     .text(secondsToClockHours(response["duration"])));
+
+            return response["tracks"].reduce((trackToItemMap, track) => (trackToItemMap[track["track_id"]] = track["item_id"], trackToItemMap), {})
         },
         function(jqXHR, textStatus, errorThrown) {
             openLoginOnUnauth(jqXHR, loadPage);
+        })
+        .then(function(trackToItemMap) {
+            $.post("{{ url_for('tracks_in_library') }}", {playlistId: "{{ playlist_id }}"})
+                .done(function(result) {
+                    Object.entries(result["tracks"]).forEach(([trackId, inLibrary]) => {
+                        var node = $(`[data-id='${trackToItemMap[trackId]}']`);
+                        node.attr("data-in-library", inLibrary);
+                        $(node).find("[data-control='library-add']").replaceWith(displayTrackLibraryIcon(node));
+                    });
+                });
         });
 }
 
