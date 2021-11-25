@@ -1,3 +1,4 @@
+import functools
 import json
 
 import requests
@@ -5,8 +6,7 @@ import traceback
 from flask import g, jsonify, redirect, render_template, request, session, url_for
 
 from playlistmanager import musicbrainz
-from playlistmanager.services import get_service
-from playlistmanager.services.pandora import client as pandora
+from playlistmanager.services import get_service, supported_services_info
 from playlistmanager.discography_playlist import discography_playlist
 from playlistmanager.similar_artists_playlist import similar_artists_playlist
 
@@ -16,18 +16,34 @@ from playlist_manager.playlist_manager import app
 @app.url_defaults
 def add_service_name(endpoint, values):
     if "service_name" not in values:
-        values["service_name"] = g.service_name or "pandora"
+        values["service_name"] = g.service_name
 
-@app.url_value_preprocessor
-def pull_service_name(endpoint, values):
-    if not values:
-        values = {}
+@app.before_request
+def extract_auth_token():
+    g.auth_token = request.headers.get("X-AuthToken")
+    g.service_name = request.args.get("service_name")
 
-    g.service_name = values.pop("service_name", "pandora")
-    # Should do something with this.
-    # if g.service_name not in get_supported_services():
-    #     pass
+@app.errorhandler(requests.exceptions.HTTPError)
+def handle_http_error(err):
+    traceback.print_tb(err.__traceback__)
 
+    if not request.headers.get("X-AuthToken"):
+        return jsonify({}), 401
+
+    return jsonify({}), err.response.status_code
+
+def auth_token_required(func):
+    @functools.wraps(func)
+    def decorated_function(*args, **kwargs):
+        # We only interact with services on POSTs (even info retrieval), so we
+        # don't need to care about service info or auth unless it's a POST.
+        if request.method == "POST":
+            if not g.service_name:
+                return jsonify({})
+            if not g.auth_token:
+                return jsonify({}), 401
+        return func(*args, **kwargs)
+    return decorated_function
 
 
 def _search_musicbrainz(artist_name):
@@ -41,45 +57,38 @@ def _search_musicbrainz(artist_name):
         })
     return choices
 
-@app.errorhandler(requests.exceptions.HTTPError)
-def handle_pandora_error(err):
-    traceback.print_tb(err.__traceback__)
-
-    if not request.headers.get("X-PandoraAuthToken"):
-        return jsonify({}), 401
-
-    return jsonify({}), err.response.status_code
-
 
 @app.route("/")
 def home():
     return redirect(url_for("show_playlists"))
 
-@app.route("/show-all", methods=["GET", "POST"])
-def show_playlists():
-    def get_playlist_info(pandora_playlists, playlist):
-        details = pandora_playlists["annotations"][playlist["pandoraId"]]
+@app.route("/supported-services")
+def supported_services():
+    def service_info(info):
         return {
-            "id": playlist["pandoraId"],
-            "name": playlist["name"],
-            "totalTracks": details["totalTracks"],
-            "duration": details["duration"]  # Seconds
+            "display": info["display"],
+            "name": info["names"][0]
         }
+    return jsonify({
+        "services": [service_info(info) for info in supported_services_info()]
+    })
 
+@app.route("/show-all", methods=["GET", "POST"])
+@auth_token_required
+def show_playlists():
     if request.method == "POST":
-        pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
-        pandora_playlists = pandora_client.get_all_playlists()
-        thumbs_up_ids = [info["pandoraId"] for key, info in pandora_playlists["annotations"].items() if info.get("linkedType") in ("StationThumbs", "MyThumbsUp", "SharedListening")]
-        playlist_info = [get_playlist_info(pandora_playlists, playlist) for playlist in pandora_playlists["items"] if playlist["pandoraId"] not in thumbs_up_ids]
-        return jsonify({"playlists": playlist_info})
+        service = get_service(g.service_name)
+        client_config = service.auth_to_config(g.auth_token)
+
+        playlists_info = service.get_playlists_info(client_config)
+
+        return jsonify({"playlists": playlists_info})
     elif request.method == "GET":
         return render_template("index.html")
 
 @app.route("/create/discography", methods=["POST"])
+@auth_token_required
 def create_discography_playlist():
-    if not request.headers.get("X-PandoraAuthToken"):
-        return jsonify({}), 401
-
     release_filter = musicbrainz.Filter.create(
         include_eps=request.form.get("eps", "False") == "True",
         include_singles=request.form.get("singles", "False") == "True",
@@ -90,6 +99,9 @@ def create_discography_playlist():
 
     artist_name = request.form.get("artistName")
     artist_id = request.form.get("artistId")
+
+    service = get_service(g.service_name)
+    client_config = service.auth_to_config(g.auth_token)
 
     if not artist_id:
         search_result = _search_musicbrainz(artist_name)
@@ -105,14 +117,12 @@ def create_discography_playlist():
         artist_name,
         artist_id,
         release_filter=release_filter,
-        client_config={"auth_token": request.headers.get("X-PandoraAuthToken")})
+        client_config=client_config)
     return jsonify({"created": created_playlist_name})
 
 @app.route("/create/similar", methods=["POST"])
+@auth_token_required
 def create_similar_artists_playlist():
-    if not request.headers.get("X-PandoraAuthToken"):
-        return jsonify({}), 401
-
     release_filter = musicbrainz.Filter.create(
         include_eps=request.form.get("eps", "False") == "True",
         include_singles=request.form.get("singles", "False") == "True",
@@ -125,11 +135,10 @@ def create_similar_artists_playlist():
     src_artist_id = request.form.get("artistId")
     similar_artist_ids = json.loads(request.form.get("similarArtistIds", "[]"))
 
+    service = get_service(g.service_name)
+    client_config = service.auth_to_config(g.auth_token)
+
     if not src_artist_id or not similar_artist_ids:
-        service = get_service(g.service_name)
-
-        client_config = service.auth_to_config(request.headers.get("X-PandoraAuthToken"))
-
         src_artist_choices = service.search_artists(src_artist_name, client_config)
         for src_artist_choice in src_artist_choices:
             for similar_artist in src_artist_choice["similar"]:
@@ -148,44 +157,49 @@ def create_similar_artists_playlist():
         src_artist_id,
         similar_artist_ids,
         release_filter=release_filter,
-        client_config={"auth_token": request.headers.get("X-PandoraAuthToken")})
+        client_config=client_config)
 
     return jsonify({"created": created_playlist_name})
 
 @app.route("/display", methods=["GET", "POST"])
+@auth_token_required
 def display_playlist():
     if request.method == "POST":
         id = request.form["id"]
-        pandora_client = pandora.Pandora.connect(auth_token=request.headers.get("X-PandoraAuthToken"))
-        playlist_info = pandora_client.get_playlist_info(id)
-        return jsonify({
-            "name": playlist_info["name"],
-            "tracks": pandora_client.get_playlist_tracks(playlist_info),
-            "duration": playlist_info["duration"]  # Seconds
-        })
+
+        service = get_service(g.service_name)
+        client_config = service.auth_to_config(g.auth_token)
+
+        playlist_info = service.get_playlist_info(id, client_config)
+        if not playlist_info:
+            return jsonify({}), 404
+
+        return jsonify(playlist_info)
     elif request.method == "GET":
         id = request.args.get("id")
         return render_template("playlist.html", playlist_id=id)
 
 @app.route("/save/<id>", methods=["POST"])
+@auth_token_required
 def save_playlist(id):
     new_tracks = json.loads(request.form["tracks"])
 
     service = get_service(g.service_name)
+    client_config = service.auth_to_config(g.auth_token)
 
-    client_config = service.auth_to_config(request.headers.get("X-PandoraAuthToken"))
     service.update_playlist(id, new_tracks, client_config)
 
     return ""
 
 @app.route("/library/add", methods=["POST"])
+@auth_token_required
 def library_add_from_playlist():
     playlist_id = request.form["playlistId"]
     tracks = json.loads(request.form["tracks"])
 
     service = get_service(g.service_name)
+    client_config = service.auth_to_config(g.auth_token)
 
-    client_config = service.auth_to_config(request.headers.get("X-PandoraAuthToken"))
-    service.add_playlist_tracks_to_library(id, new_tracks, client_config)
+    service.add_playlist_tracks_to_library(playlist_id, tracks, client_config)
 
     return ""
