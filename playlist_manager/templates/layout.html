@@ -22,13 +22,14 @@
                         if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
                             xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token() }}");
 
-                            var authToken = localStorage.getItem("authToken") || "";
-                            xhr.setRequestHeader("X-PandoraAuthToken", authToken);
+                            xhr.setRequestHeader("X-AuthToken", getAuthToken());
                         }
                     }
                 });
 
                 {% block js %}{% endblock %}
+
+                {% include "js/login.html" %}
 
                 $('[data-toggle="tooltip"]').tooltip();
             });

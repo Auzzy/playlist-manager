@@ -1,5 +1,9 @@
 $("#login-auth-token").click(function() {
-    localStorage.setItem('authToken', $("#user-auth-token").val());
+    var currentService = new URL(window.location.href).searchParams.get("service_name");
+    var authTokenDict = JSON.parse(localStorage.getItem("authToken") || "{}");
+    authTokenDict[currentService] = $("#user-auth-token").val();
+
+    localStorage.setItem('authToken', JSON.stringify(authTokenDict));
     $("#user-auth-token").val("");
 
     {% if redirect_target %}
@@ -23,4 +27,10 @@ function openLoginOnUnauth(jqXHR, loginCallback) {
             loginCallback();
         });
     }
+}
+
+function getAuthToken() {
+    var currentService = new URL(window.location.href).searchParams.get("service_name");
+    var authTokenDict = JSON.parse(localStorage.getItem("authToken") || "{}");
+    return currentService in authTokenDict ? authTokenDict[currentService] : "";
 }

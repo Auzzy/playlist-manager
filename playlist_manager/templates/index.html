@@ -61,6 +61,10 @@
             </div>
         </div>
     </div>
+    <div id="service-selector" class="row mt-3 justify-content-md-center">
+        <div class="col-md-auto">
+        </div>
+    </div>
     <div class="row mt-3">
         <div class="col">
             <div id="playlist-list" class="list-group"></div>
@@ -122,6 +126,38 @@
 {% endblock %}
 
 {% block js %}
+function loadServices() {
+    // <button class="btn btn-outline-primary" type="button" data-service-name="pandora">Pandora</button>
+    $.get("{{ url_for('supported_services') }}")
+        .done(function(result) {
+            var currentService = new URL(window.location.href).searchParams.get("service_name");
+            result["services"].forEach(info => {
+                var serviceBtn = $("<button></button>")
+                    .addClass("btn btn-outline-primary mr-1")
+                    .attr("type", "button")
+                    .attr("data-service-name", info["name"])
+                    .text(info["display"])
+                    .click(function() {
+                        var serviceName = $(this).attr("data-service-name");
+
+                        $("#service-selector [data-service-name].active")
+                            .removeClass("active");
+                        $(this).addClass("active");
+
+                        var newUrl = new URL(window.location.href);
+                        newUrl.searchParams.set("service_name", serviceName)
+                        window.location.href = newUrl.toString();
+                    });
+
+                if (info["name"] === currentService) {
+                    serviceBtn.addClass("active");
+                }
+
+                $("#service-selector").append(serviceBtn);
+            });
+        });
+}
+
 function appendPlaylist(playlist) {
     var tracksBadge = null;
     var durationBadge = null;
@@ -158,9 +194,11 @@ function appendPlaylist(playlist) {
 function loadPlaylists() {
     return $.post("{{ url_for('show_playlists') }}")
         .done(function(response) {
-            $("#playlist-list").empty();
+            if ("playlists" in response) {
+                $("#playlist-list").empty();
 
-            response["playlists"].forEach(appendPlaylist);
+                response["playlists"].forEach(appendPlaylist);
+            }
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
             openLoginOnUnauth(jqXHR, loadPlaylists);
@@ -397,6 +435,21 @@ function createSimilarArtistPlaylistPost() {
         });
 }
 
+function getSelectedService() {
+    return $("#service-selector [data-service-name].active").attr("data-service-name");
+}
+
+function injectService(baseUrl) {
+    var service = getSelectedService();
+    if (service === undefined) {
+        return baseUrl;
+    }
+
+    var newUrl = new URL(baseUrl, window.location.href);
+    newUrl.searchParams.set("service_name", service);
+    return newUrl.toString();
+}
+
 
 $("#discography-playlist-button").click(function(event) {
     createDiscographyPlaylist();
@@ -407,9 +460,9 @@ $("#similar-artists-playlist-button").click(function(event) {
 });
 
 $("#playlist-list").on("click", ".list-group-item", function() {
-    var baseUrl = "{{ url_for('display_playlist') }}";
-    var sep = baseUrl.includes("?") ? "&" : "?";
-    window.location.href = `${baseUrl}${sep}id=` + $(this).attr("data-playlist-id");
+    var newUrl = new URL("{{ url_for('display_playlist') }}", window.location.href);
+    newUrl.searchParams.set("id", $(this).attr("data-playlist-id"));
+    window.location.href = injectService(newUrl.toString());
 });
 
 $("#similar-artists-create").click(function() {
@@ -430,8 +483,7 @@ $("#modal-similar-artist-disambiguation").on("hide.bs.modal", function() {
         .removeAttr("data-artist-id");
 });
 
+loadServices();
 loadPlaylists();
-
-{% include "js/login.html" %}
 
 {% endblock %}
