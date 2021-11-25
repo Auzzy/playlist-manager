@@ -63,11 +63,7 @@
     </div>
     <div class="row mt-3">
         <div class="col">
-            <div id="playlist-list" class="list-group">
-            {% for playlist in playlists %}
-            <a href="{{ url_for('display_playlist', id=playlist['id']) }}" class="list-group-item list-group-item-action">{{ playlist['name'] }}</a>
-            {% endfor %}
-            </div>
+            <div id="playlist-list" class="list-group"></div>
         </div>
     </div>
 </div>
