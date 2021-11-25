@@ -203,3 +203,15 @@ def library_add_from_playlist():
     service.add_playlist_tracks_to_library(playlist_id, tracks, client_config)
 
     return ""
+
+@app.route("/playlist/in-library", methods=["POST"])
+def tracks_in_library():
+    playlist_id = request.form["playlistId"]
+
+    service = get_service(g.service_name)
+    client_config = service.auth_to_config(g.auth_token)
+
+    tracks_in_library = service.get_playlist_tracks_in_library(playlist_id, client_config)
+    if not tracks_in_library:
+        return jsonify({}), 404
+    return jsonify({"tracks": tracks_in_library})
