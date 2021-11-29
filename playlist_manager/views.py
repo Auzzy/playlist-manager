@@ -81,7 +81,6 @@ def show_playlists():
         client_config = service.auth_to_config(g.auth_token)
 
         playlists_info = service.get_playlists_info(client_config)
-
         return jsonify({"playlists": playlists_info})
     elif request.method == "GET":
         return render_template("index.html")

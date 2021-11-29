@@ -157,6 +157,7 @@ function loadPlaylistInfo() {
                             .attr("data-name", track["name"])
                             .attr("data-artist", track["artist"])
                             .attr("data-album", track["album"])
+                            .attr("data-in-library", track["in_library"])
                             .attr("data-duration", track["duration"]),
                         index + 1));
             });
@@ -188,14 +189,20 @@ function loadPlaylistInfo() {
             openLoginOnUnauth(jqXHR, loadPage);
         })
         .then(function(trackToItemMap) {
-            $.post("{{ url_for('tracks_in_library') }}", {playlistId: "{{ playlist_id }}"})
-                .done(function(result) {
-                    Object.entries(result["tracks"]).forEach(([trackId, inLibrary]) => {
-                        var node = $(`[data-id='${trackToItemMap[trackId]}']`);
-                        node.attr("data-in-library", inLibrary);
-                        $(node).find("[data-control='library-add']").replaceWith(displayTrackLibraryIcon(node));
+            // If any track failed to load its library status, hit the library endpoint to update them all.
+            var libraryStatuses = [];
+            $("#playlist-tracks li").each((index, val) => libraryStatuses.push($(val).attr("data-in-library")));
+            if (libraryStatuses.some(status => status === null || status === undefined)) {
+                console.log("Querying library");
+                $.post("{{ url_for('tracks_in_library') }}", {playlistId: "{{ playlist_id }}"})
+                    .done(function(result) {
+                        Object.entries(result["tracks"]).forEach(([trackId, inLibrary]) => {
+                            var node = $(`[data-id='${trackToItemMap[trackId]}']`);
+                            node.attr("data-in-library", inLibrary);
+                            $(node).find("[data-control='library-add']").replaceWith(displayTrackLibraryIcon(node));
+                        });
                     });
-                });
+            }
         });
 }
 
