@@ -167,12 +167,14 @@ function appendPlaylist(playlist) {
             .css("font-style", "italic")
             .text(playlist["totalTracks"]);
 
-        var durationMins = Math.floor(playlist["duration"] / 60);
-        var durationHours = Math.floor(durationMins / 60);
-        var remainingMins = durationMins - durationHours * 60;
-        durationBadge = $("<span></span>")
-            .addClass("badge badge-secondary")
-            .text(`${durationHours.toString().padStart(1, '0')}:${remainingMins.toString().padStart(2, '0')}`);
+        if ("duration" in playlist) {
+            var durationMins = Math.floor(playlist["duration"] / 60);
+            var durationHours = Math.floor(durationMins / 60);
+            var remainingMins = durationMins - durationHours * 60;
+            durationBadge = $("<span></span>")
+                .addClass("badge badge-secondary")
+                .text(`${durationHours.toString().padStart(1, '0')}:${remainingMins.toString().padStart(2, '0')}`);
+        }
     } else {
         tracksBadge = $("<span></span>")
             .addClass("badge badge-danger badge-pill")
