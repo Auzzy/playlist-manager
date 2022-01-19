@@ -124,9 +124,10 @@ function displayTrack(root, trackno, library) {
         event.stopPropagation();
     });
 
+    var albumStr = album !== undefined && album !== "" ? ` (from ${album})` : "";
     return $(root)
         // Text display
-        .html(`${trackno}. ${name} - <span style="font-size: 80%; color: rgb(128,128,128);">by ${artist} (from ${album})</span>`)
+        .html(`${trackno}. ${name} - <span style="font-size: 80%; color: rgb(128,128,128);">by ${artist}${albumStr}</span>`)
         // Action buttons
         .append($("<span></span>")
             .addClass("float-right")
