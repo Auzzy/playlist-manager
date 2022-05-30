@@ -158,27 +158,44 @@ function loadServices() {
         });
 }
 
-function appendPlaylist(playlist) {
-    var tracksBadge = null;
-    var durationBadge = null;
+function buildTracksBadge(playlist) {
     if (playlist["totalTracks"] > 0) {
-        tracksBadge = $("<span></span>")
+        return $("<span></span>")
             .addClass("badge badge-info badge-pill")
             .css("font-style", "italic")
             .text(playlist["totalTracks"]);
+    } else {
+        return $("<span></span>")
+            .addClass("badge badge-danger badge-pill")
+            .text("empty");
+    }
+}
 
+function buildDurationBadge(playlist) {
+    // Don't show duration when empty
+    if (playlist["duration"] > 0) {
         var durationMins = Math.floor(playlist["duration"] / 60);
         var durationHours = Math.floor(durationMins / 60);
         var remainingMins = durationMins - durationHours * 60;
-        durationBadge = $("<span></span>")
+        return $("<span></span>")
             .addClass("badge badge-secondary")
             .text(`${durationHours.toString().padStart(1, '0')}:${remainingMins.toString().padStart(2, '0')}`);
-    } else {
-        tracksBadge = $("<span></span>")
-            .addClass("badge badge-danger badge-pill")
-            .text("empty");
-        // Don't show duration when empty
     }
+    return null;
+}
+
+function addDurationBadge(playlistId) {
+    return $.post("{{ url_for('display_playlist') }}", {id: playlistId})
+        .done(function(playlist) {
+            $(`#playlist-list a[data-playlist-id='${playlistId}'] div`)
+                .append(buildDurationBadge(playlist));
+        });
+}
+
+
+function appendPlaylist(playlist) {
+    var tracksBadge = buildTracksBadge(playlist);
+    var durationBadge = buildDurationBadge(playlist);
 
     $("#playlist-list")
         .append($("<a></a>")
@@ -191,6 +208,21 @@ function appendPlaylist(playlist) {
                 .append(durationBadge)));
 }
 
+// The YTM calls are slowwwwwwwwwww. But since there's no indication of
+// duration on the playlist object, we need to make them anyways. So we delay
+// it until the list is constructed so the rest of the data can be loaded.
+// The catch is that YTM also has rate limiting in place, so we can't just fire
+// off all these calls at once. Instead, we must do them one at a time, to
+// reduce the chance of a 429.
+function attachPlaylistDurations(playlists) {
+    (async function loop() {
+        for (let i = 0; i < playlists.length; i++) {
+            await addDurationBadge(playlists[i]["id"]);
+        }
+    })();
+
+}
+
 function loadPlaylists() {
     return $.post("{{ url_for('show_playlists') }}")
         .done(function(response) {
@@ -198,6 +230,7 @@ function loadPlaylists() {
                 $("#playlist-list").empty();
 
                 response["playlists"].forEach(appendPlaylist);
+                attachPlaylistDurations(response["playlists"]);
             }
         })
         .fail(function(jqXHR) {
