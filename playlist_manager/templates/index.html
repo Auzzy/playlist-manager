@@ -200,7 +200,7 @@ function loadPlaylists() {
                 response["playlists"].forEach(appendPlaylist);
             }
         })
-        .fail(function(jqXHR, textStatus, errorThrown) {
+        .fail(function(jqXHR) {
             openLoginOnUnauth(jqXHR, loadPlaylists);
         });
 }
@@ -262,14 +262,14 @@ function createPlaylist(buttonSelector, endpointUrl, successCallback) {
                 });
             }
         })
-        .fail(function(jqXHR, textStatus, errorThrown) {
+        .fail(function(jqXHR) {
             $(`${buttonSelector} .loader`).remove();
 
             if (jqXHR.status === 404) {
                 var responseJson = JSON.parse(jqXHR.responseText);
                 $("#create-playlist-error").text(responseJson["error"]);
             } else {
-                openLoginOnUnauth(jqXHR, () => createPlaylist(endpointUrl, successCallback, buttonSelector));
+                openLoginOnUnauth(jqXHR, () => createPlaylist(buttonSelector, endpointUrl, successCallback));
                 $(`${buttonSelector} .loader`).remove();
             }
         });
@@ -314,7 +314,7 @@ function createDiscographyPlaylistUnambiguous(node, response) {
                     $("#discography-playlist-button .loader").remove();
                 });
         })
-        .fail(function(jqXHR, textStatus, errorThrown) {
+        .fail(function(jqXHR) {
             openLoginOnUnauth(jqXHR, () => createDiscographyPlaylistUnambiguous(node));
             $("#modal-artist-choices .loader").remove();
             $("#modal-artist-choices .list-group-item")
@@ -430,7 +430,7 @@ function createSimilarArtistPlaylistPost() {
                     $("#similar-artists-playlist-button .loader").remove();
                 });
         })
-        .fail(function(jqXHR, textStatus, errorThrown) {
+        .fail(function(jqXHR) {
             openLoginOnUnauth(jqXHR, createSimilarArtistPlaylistPost);
         });
 }
