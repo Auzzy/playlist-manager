@@ -27,9 +27,10 @@
                     }
                 });
 
-                {% block js %}{% endblock %}
+                {% include "js/login.js.html" %}
+                {% include "js/display-playlist.js.html" %}
 
-                {% include "js/login.html" %}
+                {% block js %}{% endblock %}
 
                 $('[data-toggle="tooltip"]').tooltip();
             });
