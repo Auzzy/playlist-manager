@@ -192,20 +192,53 @@ function addDurationBadge(playlistId) {
         });
 }
 
+function insertPlaylist(playlist) {
+    function findIndex(newName) {
+        var existingNames = jQuery.makeArray($("#playlist-list a").map(function() { return $(this).attr("data-playlist-name"); }));
+        for (const [index, name] of existingNames.entries()) {
+            if (name.toLowerCase() > newName.toLowerCase()) {
+                return index + 1;
+            }
+        }
+        return null;
+    }
 
-function appendPlaylist(playlist) {
     var tracksBadge = buildTracksBadge(playlist);
     var durationBadge = buildDurationBadge(playlist);
 
-    $("#playlist-list")
-        .append($("<a></a>")
+    var newEntry =
+        $("<a></a>")
             .addClass("list-group-item list-group-item-action d-flex justify-content-between align-items-center")
             .attr("href", "#")
             .attr("data-playlist-id", playlist["id"])
+            .attr("data-playlist-name", playlist["name"])
             .text(playlist["name"])
             .append($("<div></div>")
                 .append(tracksBadge)
-                .append(durationBadge)));
+                .append(durationBadge));
+
+    var index = findIndex(playlist["name"]);
+    if (index === null) {
+        $("#playlist-list").append(newEntry);
+    } else {
+        $(`#playlist-list a:nth-child(${index})`).before(newEntry);
+    }
+}
+
+function removePlaylist(playlistId) {
+    $(`#playlist-list a[data-playlist-id='${playlistId}']`).remove();
+}
+
+function updatePlaylists(playlists) {
+    var loadedIds = playlists.map(playlist => playlist["id"]);
+    var existingIds = jQuery.makeArray($("#playlist-list a").map(function() { return $(this).attr("data-playlist-id") }));
+
+    var toInsert = playlists.filter(playlist => !existingIds.includes(playlist["id"]));
+    toInsert.forEach(insertPlaylist);
+    attachPlaylistDurations(toInsert);
+
+    var toRemove = existingIds.filter(id => !loadedIds.includes(id));
+    toRemove.forEach(removePlaylist);
 }
 
 // The YTM calls are slowwwwwwwwwww. But since there's no indication of
@@ -220,17 +253,13 @@ function attachPlaylistDurations(playlists) {
             await addDurationBadge(playlists[i]["id"]);
         }
     })();
-
 }
 
 function loadPlaylists() {
     return $.post("{{ url_for('show_playlists') }}")
         .done(function(response) {
             if ("playlists" in response) {
-                $("#playlist-list").empty();
-
-                response["playlists"].forEach(appendPlaylist);
-                attachPlaylistDurations(response["playlists"]);
+                updatePlaylists(response["playlists"]);
             }
         })
         .fail(function(jqXHR) {
