@@ -84,7 +84,7 @@ def show_playlists():
 
         return jsonify({"playlists": playlists_info})
     elif request.method == "GET":
-        return render_template("index.html")
+        return render_template("index.js.html")
 
 @app.route("/create/discography", methods=["POST"])
 @auth_token_required
